@@ -1,86 +1,85 @@
 /* =========================================================================
-   GDrive Down - stylesheet (v1.2 "cobalt" redesign)
+   GDrive Down - stylesheet (v1.3 "Midnight")
 
-   Direction: a calm, technical utility UI. Light and dark themes are both
-   first-class (tokens swap under [data-theme]). Mobile-first: base rules
-   target small screens, min-width media queries scale up. One accent color
-   (cobalt), semantic green/red for status only. Geist Sans for UI text,
-   Geist Mono for telemetry and identifiers.
+   Dark-first design: deep navy surfaces, a single mint accent used for
+   actions and active states, Outfit for text, Geist Mono for telemetry.
+   A light theme is maintained for daylight use; both are driven by the
+   same semantic tokens under [data-theme]. Mobile-first: base rules
+   target small screens, min-width queries scale up.
    ========================================================================= */
 
 /* ----------------------------------- tokens ---------------------------- */
 
 :root {
-  --bg: #f3f5f9;
-  --surface: #ffffff;
-  --surface-2: #f6f8fb;
-  --surface-3: #ecf0f7;
+  /* dark is the canonical theme */
+  --bg: #0a0d13;
+  --surface: #10151e;
+  --surface-2: #151b26;
+  --surface-3: #1c2431;
 
-  --fg: #12151c;
-  --fg-2: #3e4657;
-  --muted: #5d6577;
-  --faint: #8b93a5;
+  --fg: #eaf0f8;
+  --fg-2: #a9b4c6;
+  --muted: #78849a;
+  --faint: #4d586c;
 
-  --border: rgba(18, 21, 28, 0.09);
-  --border-2: rgba(18, 21, 28, 0.17);
+  --border: rgba(255, 255, 255, 0.07);
+  --border-2: rgba(255, 255, 255, 0.15);
 
-  --accent: #3352d9;
-  --accent-hover: #2a45be;
-  --accent-ink: #ffffff;
-  --accent-dim: rgba(51, 82, 217, 0.1);
-  --accent-soft: rgba(51, 82, 217, 0.18);
+  --accent: #3ed5a3;
+  --accent-hover: #5ce4b6;
+  --accent-ink: #04140d;
+  --accent-dim: rgba(62, 213, 163, 0.12);
+  --accent-soft: rgba(62, 213, 163, 0.26);
 
-  --success: #1c8a57;
-  --success-dim: rgba(28, 138, 87, 0.12);
-  --danger: #c13b33;
-  --danger-dim: rgba(193, 59, 51, 0.1);
+  --danger: #f4695f;
+  --danger-dim: rgba(244, 105, 95, 0.12);
 
-  --font-sans: 'Geist Sans', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --font-sans: 'Outfit', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
   --radius-sm: 8px;
   --radius-md: 12px;
-  --radius-lg: 16px;
+  --radius-lg: 20px;
 
-  --focus: 0 0 0 3px rgba(51, 82, 217, 0.3);
-  --shadow-1: 0 1px 2px rgba(18, 21, 28, 0.05), 0 10px 28px rgba(18, 21, 28, 0.07);
+  --focus: 0 0 0 3px rgba(62, 213, 163, 0.32);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 40px rgba(0, 0, 0, 0.38);
+  --glow-accent: 0 6px 26px rgba(62, 213, 163, 0.22);
 
   --motion-fast: 140ms;
   --motion-base: 220ms;
   --ease: cubic-bezier(0.2, 0, 0, 1);
 
-  color-scheme: light;
+  color-scheme: dark;
 }
 
-[data-theme='dark'] {
-  --bg: #0c1017;
-  --surface: #131a26;
-  --surface-2: #18202e;
-  --surface-3: #212b3d;
+[data-theme='light'] {
+  --bg: #f3f6f8;
+  --surface: #ffffff;
+  --surface-2: #f5f8fa;
+  --surface-3: #eaf0f3;
 
-  --fg: #e9edf5;
-  --fg-2: #b9c2d4;
-  --muted: #8c95ab;
-  --faint: #5e687f;
+  --fg: #0f1613;
+  --fg-2: #3c4742;
+  --muted: #5d6a64;
+  --faint: #8a968f;
 
-  --border: rgba(255, 255, 255, 0.08);
-  --border-2: rgba(255, 255, 255, 0.15);
+  --border: rgba(15, 22, 19, 0.09);
+  --border-2: rgba(15, 22, 19, 0.17);
 
-  --accent: #7b93ff;
-  --accent-hover: #94a8ff;
-  --accent-ink: #0b1020;
-  --accent-dim: rgba(123, 147, 255, 0.14);
-  --accent-soft: rgba(123, 147, 255, 0.24);
+  --accent: #0a7c55;
+  --accent-hover: #0b8f63;
+  --accent-ink: #ffffff;
+  --accent-dim: rgba(10, 124, 85, 0.1);
+  --accent-soft: rgba(10, 124, 85, 0.22);
 
-  --success: #4cc38a;
-  --success-dim: rgba(76, 195, 138, 0.14);
-  --danger: #f0716a;
-  --danger-dim: rgba(240, 113, 106, 0.13);
+  --danger: #c13b33;
+  --danger-dim: rgba(193, 59, 51, 0.1);
 
-  --focus: 0 0 0 3px rgba(123, 147, 255, 0.32);
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.25), 0 12px 32px rgba(0, 0, 0, 0.32);
+  --focus: 0 0 0 3px rgba(10, 124, 85, 0.28);
+  --shadow-1: 0 1px 2px rgba(15, 22, 19, 0.05), 0 12px 32px rgba(15, 22, 19, 0.08);
+  --glow-accent: 0 6px 20px rgba(10, 124, 85, 0.18);
 
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 /* ----------------------------------- base ------------------------------ */
@@ -99,7 +98,8 @@ body {
   margin: 0;
   min-height: 100dvh;
   background:
-    radial-gradient(880px 380px at 78% -12%, var(--accent-dim), transparent 62%),
+    radial-gradient(920px 420px at 82% -14%, var(--accent-dim), transparent 60%),
+    radial-gradient(720px 480px at -12% 108%, rgba(84, 116, 176, 0.09), transparent 62%),
     var(--bg);
   color: var(--fg);
   font-family: var(--font-sans);
@@ -107,6 +107,12 @@ body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+[data-theme='light'] body {
+  background:
+    radial-gradient(920px 420px at 82% -14%, var(--accent-dim), transparent 60%),
+    var(--bg);
 }
 
 ::selection {
@@ -156,7 +162,7 @@ a {
 /* ----------------------------------- shell ----------------------------- */
 
 .shell {
-  max-width: 960px;
+  max-width: 860px;
   margin: 0 auto;
   padding: 20px 16px 64px;
   display: flex;
@@ -165,7 +171,7 @@ a {
 
 @media (min-width: 760px) {
   .shell {
-    padding: 32px 24px 96px;
+    padding: 36px 24px 96px;
   }
 }
 
@@ -176,7 +182,7 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding-bottom: 28px;
+  padding-bottom: 30px;
 }
 
 .brand {
@@ -186,14 +192,15 @@ a {
 }
 
 .brand-mark {
-  width: 26px;
-  height: 26px;
+  width: 27px;
+  height: 27px;
   flex: none;
+  border-radius: 9px;
 }
 
 .brand-name {
   font-weight: 600;
-  font-size: 16.5px;
+  font-size: 17px;
   letter-spacing: -0.01em;
 }
 
@@ -219,7 +226,7 @@ a {
   flex: none;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: var(--surface);
+  background: var(--surface-2);
   color: var(--muted);
   cursor: pointer;
   transition:
@@ -241,21 +248,21 @@ a {
 /* ----------------------------------- hero ------------------------------ */
 
 .hero {
-  padding-bottom: 24px;
+  padding-bottom: 22px;
 }
 
 .hero h1 {
   margin: 0 0 10px;
-  font-weight: 600;
-  font-size: clamp(28px, 8vw, 44px);
-  line-height: 1.06;
-  letter-spacing: -0.025em;
+  font-weight: 700;
+  font-size: clamp(30px, 8.4vw, 48px);
+  line-height: 1.04;
+  letter-spacing: -0.028em;
   max-width: 26ch;
 }
 
 .hero p {
   margin: 0;
-  max-width: 56ch;
+  max-width: 54ch;
   color: var(--fg-2);
   font-size: 15px;
   line-height: 1.55;
@@ -263,7 +270,7 @@ a {
 
 @media (min-width: 760px) {
   .hero {
-    padding-bottom: 32px;
+    padding-bottom: 30px;
   }
 
   .hero p {
@@ -279,11 +286,31 @@ a {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-1);
   padding: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.composer::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.14),
+    transparent
+  );
+  pointer-events: none;
+}
+
+[data-theme='light'] .composer::before {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent);
 }
 
 @media (min-width: 760px) {
   .composer {
-    padding: 20px;
+    padding: 18px;
   }
 }
 
@@ -331,7 +358,7 @@ a {
   border: 0;
   color: var(--fg);
   font-family: var(--font-mono);
-  font-size: 16px; /* >=16px prevents iOS focus zoom */
+  font-size: 16px; /* keeps iOS from zooming on focus */
   padding: 13px 10px;
   height: 48px;
 }
@@ -376,10 +403,12 @@ a {
   letter-spacing: 0.005em;
   cursor: pointer;
   text-decoration: none;
+  box-shadow: var(--glow-accent);
   transition:
     background var(--motion-fast) var(--ease),
     transform 80ms var(--ease),
-    opacity var(--motion-fast) var(--ease);
+    opacity var(--motion-fast) var(--ease),
+    box-shadow var(--motion-fast) var(--ease);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -391,14 +420,9 @@ a {
 }
 
 .btn-primary:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: not-allowed;
-}
-
-@media (min-width: 560px) {
-  .btn-primary {
-    min-height: 48px;
-  }
+  box-shadow: none;
 }
 
 .btn-ghost {
@@ -461,71 +485,35 @@ a {
 
 .chip.warn {
   color: var(--danger);
-  border-color: color-mix(in oklab, var(--danger), transparent 70%);
+  border-color: color-mix(in oklab, var(--danger), transparent 62%);
   background: var(--danger-dim);
 }
 
-/* options disclosure */
+/* mode row (always visible) */
 
-.options {
-  margin-top: 12px;
-  border-top: 1px solid var(--border);
-  padding-top: 4px;
-}
-
-.options summary {
-  list-style: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 2px;
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 13.5px;
-  user-select: none;
-}
-
-.options summary::-webkit-details-marker {
-  display: none;
-}
-
-.options summary:hover {
-  color: var(--fg-2);
-}
-
-.options .chev {
-  transition: transform var(--motion-fast) var(--ease);
-}
-
-.options[open] .chev {
-  transform: rotate(180deg);
-}
-
-.options-current {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--accent);
-  background: var(--accent-dim);
-  border-radius: 999px;
-  padding: 2px 9px;
-}
-
-.options-body {
+.modes-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
-  padding: 6px 2px 8px;
+  margin-top: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.modes-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
 }
 
 .modes {
   display: inline-flex;
   flex-wrap: wrap;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--surface-2);
   padding: 3px;
   gap: 2px;
@@ -540,7 +528,7 @@ a {
   letter-spacing: 0.05em;
   text-transform: uppercase;
   padding: 8px 12px;
-  border-radius: 7px;
+  border-radius: 9px;
   cursor: pointer;
   transition:
     background var(--motion-fast) var(--ease),
@@ -552,19 +540,20 @@ a {
 }
 
 .mode[aria-pressed='true'] {
-  background: var(--surface);
-  color: var(--fg);
-  box-shadow: 0 1px 2px rgba(18, 21, 28, 0.08);
-}
-
-[data-theme='dark'] .mode[aria-pressed='true'] {
-  background: var(--surface-3);
-  box-shadow: none;
+  background: var(--accent-dim);
+  color: var(--accent);
 }
 
 .kbd-hint {
+  margin-left: auto;
   font-size: 12.5px;
   color: var(--faint);
+}
+
+@media (max-width: 559px) {
+  .kbd-hint {
+    margin-left: 0;
+  }
 }
 
 kbd {
@@ -575,7 +564,7 @@ kbd {
   border-bottom-width: 2px;
   border-radius: 5px;
   padding: 1px 5px;
-  background: var(--surface-2);
+  background: var(--surface-3);
 }
 
 /* ----------------------------------- pipeline -------------------------- */
@@ -592,7 +581,7 @@ kbd {
 @media (min-width: 760px) {
   .pipeline {
     margin-top: 20px;
-    padding: 20px;
+    padding: 18px;
   }
 }
 
@@ -629,11 +618,12 @@ kbd {
   gap: 8px;
   padding: 12px 14px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 14px;
   background: var(--surface-2);
   transition:
     border-color var(--motion-base) var(--ease),
-    background var(--motion-base) var(--ease);
+    background var(--motion-base) var(--ease),
+    transform var(--motion-base) var(--ease);
 }
 
 @media (min-width: 760px) {
@@ -647,13 +637,15 @@ kbd {
     left: -27px;
     top: 50%;
     width: 26px;
-    height: 1px;
+    height: 2px;
+    border-radius: 2px;
     background: var(--border-2);
+    transition: background var(--motion-base) var(--ease);
   }
 
-  .stage.passed + .stage::before,
-  .stage.passed + .stage.passed::before {
-    background: color-mix(in oklab, var(--success), transparent 40%);
+  .stage.passed + .stage::before {
+    background: var(--accent);
+    opacity: 0.55;
   }
 }
 
@@ -692,8 +684,9 @@ kbd {
 }
 
 .stage.s-running {
-  border-color: var(--accent);
+  border-color: var(--accent-soft);
   background: var(--accent-dim);
+  transform: translateY(-1px);
 }
 
 .stage.s-running .stage-icon {
@@ -701,11 +694,11 @@ kbd {
 }
 
 .stage.s-ok {
-  border-color: color-mix(in oklab, var(--success), transparent 55%);
+  border-color: color-mix(in oklab, var(--accent), transparent 60%);
 }
 
 .stage.s-ok .stage-icon {
-  color: var(--success);
+  color: var(--accent);
 }
 
 .stage.s-failed {
@@ -725,7 +718,7 @@ kbd {
 }
 
 .progress-track {
-  height: 6px;
+  height: 8px;
   border-radius: 999px;
   background: var(--surface-3);
   overflow: hidden;
@@ -734,7 +727,7 @@ kbd {
 .progress-fill {
   height: 100%;
   width: 0%;
-  background: var(--accent);
+  background: linear-gradient(90deg, var(--accent), color-mix(in oklab, var(--accent), white 22%));
   border-radius: 999px;
   transition: width var(--motion-base) linear;
 }
@@ -854,7 +847,7 @@ kbd {
   flex-direction: column;
   gap: 14px;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--accent-soft);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-1);
   padding: 16px;
@@ -871,19 +864,14 @@ kbd {
 
 .result-glyph {
   flex: none;
-  width: 46px;
-  height: 46px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-md);
+  border-radius: 14px;
   background: var(--accent-dim);
   color: var(--accent);
-}
-
-.result-body {
-  flex: 1;
-  min-width: 0;
 }
 
 .result-name {
@@ -892,6 +880,11 @@ kbd {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.result-body {
+  flex: 1;
+  min-width: 0;
 }
 
 .result-meta {
@@ -922,10 +915,6 @@ kbd {
   .result-actions .btn-primary {
     flex: 1;
   }
-
-  .result-actions .btn-ghost {
-    flex: none;
-  }
 }
 
 /* ----------------------------------- error ----------------------------- */
@@ -933,7 +922,7 @@ kbd {
 .error-card {
   margin-top: 16px;
   background: var(--danger-dim);
-  border: 1px solid color-mix(in oklab, var(--danger), transparent 60%);
+  border: 1px solid color-mix(in oklab, var(--danger), transparent 55%);
   border-radius: var(--radius-lg);
   padding: 16px;
   animation: stamp var(--motion-base) var(--ease) both;
@@ -1009,6 +998,11 @@ kbd {
   gap: 12px;
   padding: 12px 14px;
   border-top: 1px solid var(--border);
+  transition: background var(--motion-fast) var(--ease);
+}
+
+.history-row:hover {
+  background: var(--surface-2);
 }
 
 .history-row:first-child {
@@ -1022,7 +1016,7 @@ kbd {
 }
 
 .status-icon.ok {
-  color: var(--success);
+  color: var(--accent);
 }
 
 .status-icon.err {

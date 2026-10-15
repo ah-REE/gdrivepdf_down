@@ -654,10 +654,26 @@ def generate_capture_script(port):
 
 
 def stitch_pdf(page_bytes_list, out_path, keep_dir=None):
+    if keep_dir:
+        os.makedirs(keep_dir, exist_ok=True)
+        for i, b in enumerate(page_bytes_list):
+            with open(os.path.join(keep_dir, "page_%03d.jpg" % (i + 1)), "wb") as f:
+                f.write(b)
+    # Preferred path: img2pdf embeds the JPEGs losslessly and streams,
+    # keeping memory flat for 100-page decks on small hosts.
+    try:
+        import img2pdf
+        data = img2pdf.convert(page_bytes_list)
+        with open(out_path, "wb") as f:
+            f.write(data)
+        return len(page_bytes_list)
+    except ImportError:
+        pass
+    except Exception:
+        pass  # fall back to Pillow below
     if Image is None:
         raise RuntimeError(
-            "Pillow is required to stitch captured pages into a PDF. "
-            "Install with:  pip install Pillow"
+            "Pillow or img2pdf is required to stitch captured pages into a PDF."
         )
     images = []
     bad = []
@@ -673,10 +689,6 @@ def stitch_pdf(page_bytes_list, out_path, keep_dir=None):
               % (len(bad), ", ".join(str(i + 1) for i in bad)))
     if not images:
         raise RuntimeError("No readable page images were received.")
-    if keep_dir:
-        os.makedirs(keep_dir, exist_ok=True)
-        for i, im in enumerate(images):
-            im.save(os.path.join(keep_dir, "page_%03d.jpg" % (i + 1)), "JPEG", quality=92)
     images[0].save(
         out_path, "PDF", save_all=True, append_images=images[1:],
         resolution=192.0, quality=92,

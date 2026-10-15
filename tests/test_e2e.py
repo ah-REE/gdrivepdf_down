@@ -115,6 +115,29 @@ def t_capture_fixture():
         httpd.server_close()
 
 
+def t_capture_batched():
+    import server as srv
+
+    httpd = ThreadingHTTPServer(
+        ("127.0.0.1", 8898),
+        lambda *a, **kw: SimpleHTTPRequestHandler(*a, directory=str(TESTS), **kw),
+    )
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        job = srv.Job(id="test", link="test", mode="capture")
+        pages, total = srv.capture_via_sessions(
+            job,
+            "http://127.0.0.1:8898/fixture_preview.html",
+            page_wait_ms=20000,
+            batch=2,
+        )
+        assert total == 3, "expected 3 pages, got %s" % total
+        assert len(pages) == 3, "captured %d of 3" % len(pages)
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
 def t_live_preview_smoke():
     from playwright.sync_api import sync_playwright
 
@@ -140,6 +163,7 @@ def main():
     check("health endpoint", t_health)
     check("full job flow + websocket + file fetch", t_job_flow)
     check("capture pipeline against local preview fixture", t_capture_fixture)
+    check("batched capture across browser sessions", t_capture_batched)
     check("playwright can load a real drive.google.com preview", t_live_preview_smoke)
     if all(RESULTS):
         print("All E2E checks passed.")

@@ -274,7 +274,7 @@ export default function App() {
           <span className="brand-name">GDrive Down</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v1.2</span>
+          <span className="topbar-version">v1.3</span>
           <button
             type="button"
             className="icon-btn"

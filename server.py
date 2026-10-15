@@ -347,8 +347,11 @@ def _launch_browser(pw, headless: bool):
         "python -m playwright install chromium  (" + " | ".join(errors) + ")")
 
 
-def capture_all_pages(page, on_progress, page_wait_ms: int = 45000):
-    """Drive the open preview page: wait for render, capture every page."""
+CAPTURE_BATCH = int(os.environ.get("GDD_CAPTURE_BATCH", "15"))
+
+
+def _prepare_preview_page(page, page_wait_ms: int) -> int:
+    """Wait for the viewer to render, then return the page count."""
     try:
         page.wait_for_selector('img[src^="blob:"]', timeout=page_wait_ms)
     except Exception as e:  # noqa: BLE001
@@ -360,15 +363,35 @@ def capture_all_pages(page, on_progress, page_wait_ms: int = 45000):
     count = page.evaluate(INJECT_PAGES_JS)
     if not isinstance(count, int) or count <= 0:
         raise CaptureNoPages("No page containers detected in the preview.")
+    return count
+
+
+def _capture_page(page, index: int, attempts: int = 2):
+    """Capture a single page as JPEG bytes; returns None when it fails."""
+    for _ in range(attempts):
+        try:
+            data_url = page.evaluate(CAPTURE_PAGE_JS, index)
+        except Exception:  # noqa: BLE001
+            page.wait_for_timeout(400)
+            continue
+        if data_url and "," in data_url:
+            try:
+                return base64.b64decode(data_url.split(",", 1)[1])
+            except Exception:  # noqa: BLE001
+                pass
+        page.wait_for_timeout(300)
+    return None
+
+
+def capture_all_pages(page, on_progress, page_wait_ms: int = 45000):
+    """Single-session capture of every page (used by tests)."""
+    count = _prepare_preview_page(page, page_wait_ms)
     on_progress(0, count)
     pages: dict[int, bytes] = {}
     for i in range(count):
-        data_url = page.evaluate(CAPTURE_PAGE_JS, i)
-        if data_url and "," in data_url:
-            try:
-                pages[i] = base64.b64decode(data_url.split(",", 1)[1])
-            except Exception:  # noqa: BLE001
-                pass
+        data = _capture_page(page, i)
+        if data:
+            pages[i] = data
         on_progress(len(pages), count)
         page.wait_for_timeout(120)
     if not pages:
@@ -376,72 +399,166 @@ def capture_all_pages(page, on_progress, page_wait_ms: int = 45000):
     return [pages[i] for i in sorted(pages)], count
 
 
+def _open_session(pw, preview: str, page_wait_ms: int, headful_persistent: bool):
+    """Open one browser session on the preview; returns (ctx, browser, page)."""
+    ctx = None
+    browser = None
+    if headful_persistent:
+        profile_dir = ROOT / ".browser_profile"
+        profile_dir.mkdir(exist_ok=True)
+        for channel in ("msedge", "chrome"):
+            try:
+                ctx = pw.chromium.launch_persistent_context(
+                    str(profile_dir), channel=channel, headless=False,
+                    args=_browser_args(),
+                    viewport={"width": 1360, "height": VIEWPORT_H})
+                break
+            except Exception:  # noqa: BLE001
+                ctx = None
+        if ctx is None:
+            ctx = pw.chromium.launch_persistent_context(
+                str(profile_dir), headless=False, args=_browser_args(),
+                viewport={"width": 1360, "height": VIEWPORT_H})
+        page = ctx.pages[0] if ctx.pages else ctx.new_page()
+    else:
+        browser, _channel = _launch_browser(pw, headless=True)
+        ctx = browser.new_context(
+            viewport={"width": 1360, "height": VIEWPORT_H},
+            device_scale_factor=DEVICE_SCALE)
+        page = ctx.new_page()
+    page.goto(preview, wait_until="domcontentloaded", timeout=60000)
+    page.wait_for_timeout(800)
+    if "accounts.google.com" in page.url:
+        raise CaptureAuthNeeded()
+    return ctx, browser, page
+
+
+def capture_via_sessions(job, preview: str, page_wait_ms: int = 45000,
+                         headful_persistent: bool = False, batch: int | None = None):
+    """Capture every page of the preview, restarting the browser every
+    `batch` pages. Keeps memory flat for large decks on small hosts and
+    survives individual browser-session failures. Returns (pages, total)."""
+    from playwright.sync_api import sync_playwright
+
+    batch = batch or CAPTURE_BATCH
+    pages: dict[int, bytes] = {}
+    total: int | None = None
+    start = 0
+    consecutive_failures = 0
+
+    def on_progress(done, tot):
+        job.emit({"type": "progress", "stage": "capture",
+                  "done": int(done), "total": int(tot)})
+
+    while True:
+        if total is not None and start >= total:
+            break
+        end = None
+        try:
+            with sync_playwright() as pw:
+                ctx, browser, page = _open_session(
+                    pw, preview, page_wait_ms, headful_persistent)
+                try:
+                    if headful_persistent and total is None:
+                        job.emit({"type": "log",
+                                  "message": "Waiting for sign-in / preview (up to 5 min)…"})
+                    if total is None:
+                        total = _prepare_preview_page(page, page_wait_ms)
+                        job.emit({"type": "log",
+                                  "message": "Found %d pages. Capturing in batches of %d."
+                                             % (total, batch)})
+                        on_progress(0, total)
+                    else:
+                        _prepare_preview_page(page, page_wait_ms)
+                    end = min(total, start + batch)
+                    for i in range(start, end):
+                        data = _capture_page(page, i)
+                        if data:
+                            pages[i] = data
+                        on_progress(len(pages), total)
+                        page.wait_for_timeout(120)
+                    consecutive_failures = 0
+                finally:
+                    try:
+                        ctx.close()
+                        if browser is not None:
+                            browser.close()
+                    except Exception:  # noqa: BLE001
+                        pass
+        except CaptureAuthNeeded:
+            raise
+        except CaptureNoPages as e:
+            if total is None:
+                raise
+            consecutive_failures += 1
+            job.emit({"type": "log",
+                      "message": "A browser session could not render the preview (%s); "
+                                 "continuing with the next batch." % e})
+            if end is None or end <= start:
+                end = min(total, start + 1)
+        except Exception as e:  # noqa: BLE001
+            if total is None:
+                raise
+            consecutive_failures += 1
+            job.emit({"type": "log",
+                      "message": "A browser session failed (%s); continuing." % e})
+            if end is None or end <= start:
+                end = min(total, start + 1)
+
+        if end is None or consecutive_failures > 8:
+            break
+        start = end
+
+    missing = [i for i in range(total or 0) if i not in pages]
+    if missing and total:
+        job.emit({"type": "log",
+                  "message": "Retrying %d missing page(s)…" % len(missing)})
+        try:
+            with sync_playwright() as pw:
+                ctx, browser, page = _open_session(
+                    pw, preview, page_wait_ms, headful_persistent)
+                try:
+                    _prepare_preview_page(page, page_wait_ms)
+                    for i in missing:
+                        data = _capture_page(page, i, attempts=3)
+                        if data:
+                            pages[i] = data
+                            on_progress(len(pages), total)
+                finally:
+                    try:
+                        ctx.close()
+                        if browser is not None:
+                            browser.close()
+                    except Exception:  # noqa: BLE001
+                        pass
+        except Exception as e:  # noqa: BLE001
+            job.emit({"type": "log", "message": "Retry pass skipped: %s" % e})
+
+    if not pages:
+        raise CaptureNoPages("Pages were found but no image could be captured.")
+    still_missing = [i for i in range(total or 0) if i not in pages]
+    if still_missing:
+        job.emit({"type": "log",
+                  "message": "Note: %d page(s) could not be captured: %s"
+                             % (len(still_missing),
+                                ", ".join(str(m + 1) for m in still_missing[:12]))})
+    return pages, int(total or len(pages))
+
+
 def capture_with_browser(job: Job, file_id: str, title: str | None,
                          headful_persistent: bool = False):
     """Run the automated capture; returns the output PDF path."""
-    from playwright.sync_api import sync_playwright
-
     DOWNLOADS.mkdir(exist_ok=True)
     preview = "https://drive.google.com/file/d/%s/preview" % file_id
-    profile_dir = ROOT / ".browser_profile"
-
-    def on_progress(done, total):
-        job.emit({"type": "progress", "stage": "capture",
-                  "done": int(done), "total": int(total)})
-
-    with sync_playwright() as pw:
-        ctx = None
-        browser = None
-        if headful_persistent:
-            profile_dir.mkdir(exist_ok=True)
-            # persistent + headful: keeps the sign-in between runs
-            for channel in ("msedge", "chrome"):
-                try:
-                    ctx = pw.chromium.launch_persistent_context(
-                        str(profile_dir), channel=channel, headless=False,
-                        args=_browser_args(),
-                        viewport={"width": 1360, "height": VIEWPORT_H})
-                    break
-                except Exception:  # noqa: BLE001
-                    ctx = None
-            if ctx is None:
-                ctx = pw.chromium.launch_persistent_context(
-                    str(profile_dir), headless=False, args=_browser_args(),
-                    viewport={"width": 1360, "height": VIEWPORT_H})
-            page = ctx.pages[0] if ctx.pages else ctx.new_page()
-        else:
-            browser, _channel = _launch_browser(pw, headless=True)
-            ctx = browser.new_context(
-                viewport={"width": 1360, "height": VIEWPORT_H},
-                device_scale_factor=DEVICE_SCALE)
-            page = ctx.new_page()
-
-        try:
-            page.goto(preview, wait_until="domcontentloaded", timeout=60000)
-            page.wait_for_timeout(800)
-            if "accounts.google.com" in page.url:
-                raise CaptureAuthNeeded()
-            wait_ms = 300000 if headful_persistent else 45000
-            if headful_persistent:
-                job.emit({"type": "log",
-                          "message": "Waiting for sign-in / preview (up to 5 min)…"})
-            page_pages, count = capture_all_pages(page, on_progress, wait_ms)
-            job.emit({"type": "log", "message": "Captured %d of %d pages."
-                      % (len(page_pages), count)})
-        finally:
-            try:
-                if ctx is not None:
-                    ctx.close()
-                if browser is not None:
-                    browser.close()
-            except Exception:  # noqa: BLE001
-                pass
-
+    page_wait_ms = 300000 if headful_persistent else 45000
+    pages, total = capture_via_sessions(job, preview, page_wait_ms, headful_persistent)
+    job.emit({"type": "log", "message": "Captured %d of %d pages."
+              % (len(pages), total)})
     base = gd.sanitize_filename(title or file_id)
     if base.lower().endswith(".pdf"):
         base = base[:-4]
     out_path = gd.unique_path(str(DOWNLOADS / (base + ".pdf")))
-    n = gd.stitch_pdf(page_pages, out_path)
+    n = gd.stitch_pdf([pages[i] for i in sorted(pages)], out_path)
     job.emit({"type": "log", "message": "Stitched %d pages into %s"
               % (n, Path(out_path).name)})
     return out_path

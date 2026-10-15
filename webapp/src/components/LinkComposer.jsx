@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 
-import { IconArrowRight, IconChevron, IconLink, IconPaste } from './Glyphs.jsx'
+import { IconArrowRight, IconLink, IconPaste } from './Glyphs.jsx'
 
 const MODES = [
   ['auto', 'Auto', 'Try direct download, then export, then browser capture'],
@@ -104,32 +104,26 @@ export default function LinkComposer({
           ) : null}
         </div>
 
-        <details className="options">
-          <summary>
-            <IconChevron size={13} className="chev" />
-            Options
-            <span className="options-current">{mode}</span>
-          </summary>
-          <div className="options-body">
-            <div className="modes" role="group" aria-label="Download mode">
-              {MODES.map(([value, label, tip]) => (
-                <button
-                  key={value}
-                  type="button"
-                  className="mode"
-                  aria-pressed={mode === value}
-                  title={tip}
-                  onClick={() => setMode(value)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <span className="kbd-hint">
-              Press <kbd>Enter</kbd> to start. Auto works for almost everything.
-            </span>
+        <div className="modes-row">
+          <span className="modes-label">Mode</span>
+          <div className="modes" role="group" aria-label="Download mode">
+            {MODES.map(([value, label, tip]) => (
+              <button
+                key={value}
+                type="button"
+                className="mode"
+                aria-pressed={mode === value}
+                title={tip}
+                onClick={() => setMode(value)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-        </details>
+          <span className="kbd-hint">
+            Press <kbd>Enter</kbd> to start. Auto works for almost everything.
+          </span>
+        </div>
       </form>
     </section>
   )

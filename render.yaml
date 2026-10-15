@@ -19,3 +19,5 @@ services:
         value: "1"
       - key: GDD_VIEWPORT_H
         value: "1400"
+      - key: GDD_CAPTURE_BATCH
+        value: "15"
