@@ -8,19 +8,12 @@ import WakeBanner from './components/WakeBanner.jsx'
 import { BrandMark, IconAlert, IconMoon, IconSun } from './components/Glyphs.jsx'
 import { apiHealth, apiListJobs, apiStartJob, openJobSocket } from './lib/api.js'
 import { useTheme } from './lib/useTheme.js'
+import { MODE } from './config.js'
+import { detect } from './lib/link.js'
+import StaticApp from './components/StaticApp.jsx'
 
-function detect(link) {
-  const t = (link || '').trim()
-  if (!t) return null
-  if (/\/folders\//.test(t) || /\/drive\/(u\/\d+\/)?folders/.test(t)) return { folder: true }
-  const native = t.match(
-    /docs\.google\.com\/(document|presentation|spreadsheets|forms)\/d\/([A-Za-z0-9_-]{25,})/,
-  )
-  if (native) return { id: native[2], kind: native[1] }
-  const m = t.match(/(?:file\/d\/|[?&]id=|\/d\/)([A-Za-z0-9_-]{25,})/)
-  if (m) return { id: m[1], kind: 'file' }
-  if (/^[A-Za-z0-9_-]{25,}$/.test(t)) return { id: t, kind: 'file' }
-  return { invalid: true }
+export default function App() {
+  return MODE === 'static' ? <StaticApp /> : <BackendApp />
 }
 
 function ErrorCard({ error, onRetry }) {
@@ -42,7 +35,7 @@ function ErrorCard({ error, onRetry }) {
   )
 }
 
-export default function App() {
+function BackendApp() {
   const [link, setLink] = useState('')
   const [mode, setMode] = useState('auto')
   const [job, setJob] = useState(null)
@@ -274,7 +267,7 @@ export default function App() {
           <span className="brand-name">GDrive Down</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v1.3</span>
+          <span className="topbar-version">v1.4</span>
           <button
             type="button"
             className="icon-btn"

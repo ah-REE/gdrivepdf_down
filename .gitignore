@@ -19,3 +19,6 @@ tests/fixture_out.pdf
 Chapter_*.pdf
 
 .vercel
+
+webapp/dist-static/
+

@@ -961,6 +961,86 @@ kbd {
   gap: 8px;
 }
 
+/* ----------------------------------- static mode ----------------------- */
+
+.static-hint {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--faint);
+}
+
+.btn-primary[aria-disabled='true'] {
+  opacity: 0.4;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.capture-card {
+  margin-top: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  padding: 16px;
+}
+
+@media (min-width: 760px) {
+  .capture-card {
+    margin-top: 20px;
+    padding: 18px;
+  }
+}
+
+.capture-sub {
+  margin: 8px 0 0;
+  color: var(--fg-2);
+  font-size: 14px;
+  max-width: 62ch;
+}
+
+.capture-steps {
+  margin: 14px 0 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--fg-2);
+  font-size: 14px;
+}
+
+.drag-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  margin: 0 4px;
+  border-radius: 999px;
+  border: 1px dashed var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: grab;
+}
+
+.drag-btn:active {
+  cursor: grabbing;
+}
+
+.capture-actions {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.capture-note {
+  font-size: 12.5px;
+  color: var(--faint);
+  max-width: 52ch;
+}
+
 /* ----------------------------------- history --------------------------- */
 
 .history {
