@@ -5,8 +5,9 @@ import PipelineRail from './components/PipelineRail.jsx'
 import ResultCard from './components/ResultCard.jsx'
 import HistoryList from './components/HistoryList.jsx'
 import WakeBanner from './components/WakeBanner.jsx'
-import { BrandMark, IconAlert } from './components/Glyphs.jsx'
+import { BrandMark, IconAlert, IconMoon, IconSun } from './components/Glyphs.jsx'
 import { apiHealth, apiListJobs, apiStartJob, openJobSocket } from './lib/api.js'
+import { useTheme } from './lib/useTheme.js'
 
 function detect(link) {
   const t = (link || '').trim()
@@ -59,6 +60,8 @@ export default function App() {
   const serverStatusRef = useRef('unknown')
   const startRef = useRef(null)
 
+  const { theme, toggle } = useTheme()
+
   const detectInfo = useMemo(() => detect(link), [link])
   const running = Boolean(job && (job.status === 'queued' || job.status === 'running'))
   const waking = server.status === 'waking'
@@ -71,7 +74,6 @@ export default function App() {
     serverStatusRef.current = server.status
   }, [server.status])
 
-  // Tick the clock while something is in progress (job or server wake).
   useEffect(() => {
     if (!running && !waking) return undefined
     const iv = setInterval(() => setNow(Date.now()), 1000)
@@ -82,7 +84,7 @@ export default function App() {
     try {
       setHistory(await apiListJobs())
     } catch {
-      /* server restarting — keep the last known list */
+      /* server restarting; keep the last known list */
     }
   }, [])
 
@@ -101,9 +103,9 @@ export default function App() {
     return ok
   }, [refreshHistory])
 
-  // Initial probe + re-check when the tab regains focus on a sleeping server.
   useEffect(() => {
     checkHealth()
+    refreshHistory()
     const onVis = () => {
       if (document.visibilityState === 'visible' && serverStatusRef.current !== 'awake') {
         checkHealth()
@@ -117,7 +119,6 @@ export default function App() {
     }
   }, [checkHealth])
 
-  // Poll while the server is waking.
   useEffect(() => {
     if (server.status !== 'waking') return undefined
     const iv = setInterval(() => {
@@ -167,7 +168,6 @@ export default function App() {
   const connectSocketRef = useRef(null)
   connectSocketRef.current = (id) => {
     wsRef.current = openJobSocket(id, applyEvent, () => {
-      // Unexpected close — resume the stream if the job is still in flight.
       if (jobRunningRef.current && wsRetryRef.current < 6) {
         wsRetryRef.current += 1
         reconnectTimerRef.current = setTimeout(() => {
@@ -217,8 +217,6 @@ export default function App() {
         connectSocketRef.current?.(id)
       } catch (e) {
         if (e.isNetwork) {
-          // Server unreachable (asleep / restarting): arm the wake flow and
-          // start the job automatically once it answers again.
           wasWakingRef.current = true
           setServer({ status: 'waking', since: Date.now() })
           setPendingStart({ link: linkArg, mode: modeArg })
@@ -240,7 +238,6 @@ export default function App() {
   )
   startRef.current = start
 
-  // Auto-start once the server finishes waking, if the user already asked.
   useEffect(() => {
     if (server.status === 'awake' && pendingStart) {
       const ps = pendingStart
@@ -276,17 +273,25 @@ export default function App() {
           <BrandMark />
           <span className="brand-name">GDrive Down</span>
         </div>
-        <div className="topbar-meta">
-          v1.1 <span className="dot">·</span> local or hosted
+        <div className="topbar-right">
+          <span className="topbar-version">v1.2</span>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={toggle}
+            aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          >
+            {theme === 'dark' ? <IconSun size={17} /> : <IconMoon size={17} />}
+          </button>
         </div>
       </header>
 
       <section className="hero reveal reveal-1">
         <h1>Paste a link. Get the file.</h1>
         <p>
-          Public <span className="em">PDFs and decks</span> download straight from the Drive
-          servers. View-only files are captured page-by-page in a real browser and rebuilt
-          as a single PDF — <span className="em">no manual steps</span>.
+          Public files download directly from Google. View-only PDFs and decks are captured
+          in a real browser and rebuilt as one PDF.
         </p>
       </section>
 
@@ -321,8 +326,8 @@ export default function App() {
       <HistoryList jobs={history} onRetry={retryFromHistory} />
 
       <footer className="footer reveal reveal-3">
-        <span>Runs on your machine — or host the backend and use it from anywhere.</span>
-        <span className="mono">prefer the terminal? python gdrive_down.py</span>
+        <span>Runs on this machine or hosted. Requests go to Google and your own backend only.</span>
+        <span className="mono">python gdrive_down.py for the CLI</span>
       </footer>
     </div>
   )

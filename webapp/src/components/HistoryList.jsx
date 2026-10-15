@@ -1,6 +1,6 @@
 import { apiPath } from '../lib/api.js'
 import { fmtBytes, shortId, timeAgo } from '../lib/format.js'
-import { IconDownload } from './Glyphs.jsx'
+import { IconCheck, IconDot, IconDownload, IconX } from './Glyphs.jsx'
 
 const STATUS_LABEL = {
   queued: 'queued',
@@ -9,16 +9,38 @@ const STATUS_LABEL = {
   error: 'failed',
 }
 
-function dotClass(status) {
-  if (status === 'done') return 'status-dot ok'
-  if (status === 'error') return 'status-dot err'
-  if (status === 'running' || status === 'queued') return 'status-dot run'
-  return 'status-dot'
+function StatusIcon({ status }) {
+  if (status === 'done') {
+    return (
+      <span className="status-icon ok">
+        <IconCheck size={15} />
+      </span>
+    )
+  }
+  if (status === 'error') {
+    return (
+      <span className="status-icon err">
+        <IconX size={15} />
+      </span>
+    )
+  }
+  if (status === 'running' || status === 'queued') {
+    return (
+      <span className="status-icon run pulse">
+        <IconDot size={14} />
+      </span>
+    )
+  }
+  return (
+    <span className="status-icon">
+      <IconDot size={14} />
+    </span>
+  )
 }
 
 function displayLink(link) {
   const m = (link || '').match(/[A-Za-z0-9_-]{25,}/)
-  if (m) return `drive · ${shortId(m[0])}`
+  if (m) return `drive ${shortId(m[0])}`
   const t = (link || '').trim()
   return t.length > 46 ? `${t.slice(0, 46)}…` : t
 }
@@ -42,15 +64,21 @@ export default function HistoryList({ jobs, onRetry }) {
             <div className="empty-steps">
               <span className="empty-step">
                 <span className="step-num">1</span>
-                <b>Paste</b> a Drive link
+                <span>
+                  <b>Paste</b> a Drive link
+                </span>
               </span>
               <span className="empty-step">
                 <span className="step-num">2</span>
-                <b>Watch</b> the pipeline
+                <span>
+                  <b>Watch</b> the pipeline
+                </span>
               </span>
               <span className="empty-step">
                 <span className="step-num">3</span>
-                <b>Save</b> the file
+                <span>
+                  <b>Save</b> the file
+                </span>
               </span>
             </div>
           </div>
@@ -59,7 +87,7 @@ export default function HistoryList({ jobs, onRetry }) {
         <div className="history-list">
           {jobs.map((j) => (
             <div className="history-row" key={j.id}>
-              <span className={dotClass(j.status)} aria-hidden="true" />
+              <StatusIcon status={j.status} />
               <div className="history-main">
                 <div className="history-name" title={j.result?.name || j.link}>
                   {j.result?.name || displayLink(j.link)}

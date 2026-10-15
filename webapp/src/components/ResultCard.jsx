@@ -1,12 +1,12 @@
-import { apiPath } from '../lib/api.js'
 import { fmtBytes } from '../lib/format.js'
+import { apiPath } from '../lib/api.js'
 import { FileGlyph, IconDownload } from './Glyphs.jsx'
 
 export default function ResultCard({ result, fromCapture, onReset }) {
   return (
     <section className="result" aria-label="Download ready">
       <div className="result-glyph">
-        <FileGlyph family={result.family} size={44} />
+        <FileGlyph family={result.family} size={26} />
       </div>
       <div className="result-body">
         <div className="result-name" title={result.name}>
@@ -18,7 +18,7 @@ export default function ResultCard({ result, fromCapture, onReset }) {
         </div>
         {fromCapture ? (
           <div className="result-note">
-            Captured page-by-page in the browser and stitched into a single PDF.
+            Captured page by page in the browser and stitched into a single PDF.
           </div>
         ) : null}
       </div>

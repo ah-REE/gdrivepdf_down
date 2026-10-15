@@ -4,7 +4,7 @@ import { IconCheck, IconDot, IconMinus, IconX } from './Glyphs.jsx'
 const STAGE_DEFS = [
   { key: 'direct', name: 'Direct', idle: 'server download' },
   { key: 'export', name: 'Export', idle: 'docs export' },
-  { key: 'capture', name: 'Capture', idle: 'browser → PDF' },
+  { key: 'capture', name: 'Capture', idle: 'browser to PDF' },
 ]
 
 const STAGE_LABEL = {
@@ -26,7 +26,7 @@ function stageDetail(key, state, progress) {
     if (state === 'running' && p) return `page ${p.done} / ${p.total || '…'}`
     if (state === 'ok') return 'rebuilt'
     if (state === 'failed') return 'failed'
-    if (state === 'skipped') return 'n/a'
+    if (state === 'skipped') return 'skipped'
     return null
   }
   if (state === 'running' && p) {
@@ -34,7 +34,7 @@ function stageDetail(key, state, progress) {
   }
   if (state === 'ok') return key === 'direct' ? 'downloaded' : 'exported'
   if (state === 'failed') return 'failed'
-  if (state === 'skipped') return 'n/a'
+  if (state === 'skipped') return 'skipped'
   return null
 }
 
@@ -42,7 +42,7 @@ function StageIcon({ state }) {
   if (state === 'running') {
     return (
       <span className="pulse">
-        <IconDot size={15} />
+        <IconDot size={14} />
       </span>
     )
   }
@@ -64,17 +64,17 @@ export default function PipelineRail({ job, now }) {
   const slow = running && elapsed > 15
 
   const statusText = !job
-    ? 'waiting for a link'
+    ? 'Waiting for a link'
     : running
-      ? `running · ${fmtClock(elapsed)}`
+      ? `Running · ${fmtClock(elapsed)}`
       : job.status === 'done'
-        ? `finished in ${fmtClock(elapsed)}`
-        : `failed · ${fmtClock(elapsed)}`
+        ? `Finished in ${fmtClock(elapsed)}`
+        : `Failed · ${fmtClock(elapsed)}`
 
   const liveText = !job
     ? 'Waiting for a link.'
     : running
-      ? `Working — ${STAGE_LABEL[active] || 'starting'}, ${Math.round(elapsed)} seconds elapsed.`
+      ? `Working: ${STAGE_LABEL[active] || 'starting'}, ${Math.round(elapsed)} seconds elapsed.`
       : job.status === 'done'
         ? 'Download finished.'
         : 'Download failed.'
@@ -134,8 +134,8 @@ export default function PipelineRail({ job, now }) {
           {lastLog ? <div className="log-line">{lastLog}</div> : null}
           {slow ? (
             <div className="slow-note">
-              Taking longer than expected — large captures can take several minutes. Leave
-              this tab open, it keeps working.
+              Taking longer than expected. Large captures can take several minutes; leave
+              this tab open.
             </div>
           ) : null}
         </div>

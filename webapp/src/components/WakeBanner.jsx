@@ -1,15 +1,17 @@
 import { fmtClock } from '../lib/format.js'
+import { IconDot } from './Glyphs.jsx'
 
-// Shown when the backend is unreachable or slow to answer — typical on
-// Render's free tier, which sleeps after ~15 minutes of inactivity and
-// takes up to a minute to wake on the next request.
+// Shown when the backend is unreachable or slow to answer. Typical on the
+// hosted free tier, which sleeps after idle time and wakes on demand.
 export default function WakeBanner({ since, now, onRetryNow }) {
   const elapsed = since ? Math.max(0, Math.floor((now - since) / 1000)) : 0
 
   return (
     <section className="wake" role="status" aria-live="polite" aria-label="Server is waking up">
       <div className="wake-row">
-        <span className="wake-dot pulse" aria-hidden="true" />
+        <span className="wake-dot pulse" aria-hidden="true">
+          <IconDot size={10} />
+        </span>
         <div className="wake-text">
           <div className="wake-title">Waking the server up…</div>
           {elapsed > 150 ? (
@@ -22,13 +24,13 @@ export default function WakeBanner({ since, now, onRetryNow }) {
             </div>
           ) : elapsed > 60 ? (
             <div className="wake-sub">
-              Still waking — a cold start after a long sleep can take a little longer.
-              Hang tight, it retries on its own.
+              Still waking. A cold start after a long sleep can take a little longer; it
+              retries on its own.
             </div>
           ) : (
             <div className="wake-sub">
-              The hosted backend sleeps after idle time (Render free tier). The first
-              request usually takes up to ~60 seconds.
+              The hosted backend sleeps when idle. The first request usually takes up to
+              about a minute.
             </div>
           )}
         </div>

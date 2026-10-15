@@ -1,12 +1,12 @@
 import { useRef } from 'react'
 
-import { IconArrowRight, IconLink, IconPaste } from './Glyphs.jsx'
+import { IconArrowRight, IconChevron, IconLink, IconPaste } from './Glyphs.jsx'
 
 const MODES = [
   ['auto', 'Auto', 'Try direct download, then export, then browser capture'],
-  ['direct', 'Direct', 'Public files only — straight from the Drive servers'],
-  ['export', 'Export', 'Native Google Docs / Slides / Sheets export'],
-  ['capture', 'Capture', 'Rebuild a PDF from the browser preview (view-only files)'],
+  ['direct', 'Direct', 'Public files only, straight from the Drive servers'],
+  ['export', 'Export', 'Native Google Docs, Slides and Sheets export'],
+  ['capture', 'Capture', 'Rebuild a PDF from the browser preview for view-only files'],
 ]
 
 export default function LinkComposer({
@@ -58,6 +58,8 @@ export default function LinkComposer({
               placeholder="https://drive.google.com/file/d/…"
               spellCheck={false}
               autoComplete="off"
+              inputMode="url"
+              enterKeyHint="go"
               autoFocus
             />
             <button
@@ -73,7 +75,7 @@ export default function LinkComposer({
           <button
             type="submit"
             className={demoteCta ? 'btn-ghost' : 'btn-primary'}
-            style={demoteCta ? { height: 44 } : undefined}
+            style={demoteCta ? { minHeight: 48 } : undefined}
             disabled={!canSubmit}
           >
             {running ? (
@@ -90,37 +92,44 @@ export default function LinkComposer({
 
         <div className="chip-row" role="status">
           {detectInfo?.folder ? (
-            <span className="chip warn">folder link — paste a single-file link instead</span>
+            <span className="chip warn">Folder link. Paste a single-file link instead.</span>
           ) : null}
           {detectInfo?.id ? (
             <span className="chip ok">
-              detected · {detectInfo.kind === 'file' ? 'drive file' : detectInfo.kind}
+              Recognized {detectInfo.kind === 'file' ? 'Drive file' : detectInfo.kind}
             </span>
           ) : null}
           {link && detectInfo && !detectInfo.id && !detectInfo.folder ? (
-            <span className="chip">no file id in that link yet</span>
+            <span className="chip">No file id in that link yet</span>
           ) : null}
         </div>
 
-        <div className="composer-foot">
-          <div className="modes" role="group" aria-label="Download mode">
-            {MODES.map(([value, label, tip]) => (
-              <button
-                key={value}
-                type="button"
-                className="mode"
-                aria-pressed={mode === value}
-                title={tip}
-                onClick={() => setMode(value)}
-              >
-                {label}
-              </button>
-            ))}
+        <details className="options">
+          <summary>
+            <IconChevron size={13} className="chev" />
+            Options
+            <span className="options-current">{mode}</span>
+          </summary>
+          <div className="options-body">
+            <div className="modes" role="group" aria-label="Download mode">
+              {MODES.map(([value, label, tip]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className="mode"
+                  aria-pressed={mode === value}
+                  title={tip}
+                  onClick={() => setMode(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <span className="kbd-hint">
+              Press <kbd>Enter</kbd> to start. Auto works for almost everything.
+            </span>
           </div>
-          <span className="kbd-hint">
-            press <kbd>Enter</kbd> to start
-          </span>
-        </div>
+        </details>
       </form>
     </section>
   )
