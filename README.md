@@ -58,6 +58,10 @@ automates this whole step.
 
 ## Deploying the UI to Vercel
 
+**Live now:** https://gdrivedown.vercel.app — UI-only until a backend is
+attached (see below); file downloads need a backend that is reachable
+from the browser.
+
 This repo ships a `vercel.json`, so the **frontend** can be deployed to
 Vercel directly: import the repository on Vercel and deploy — no extra
 settings. Vercel runs `npm --prefix webapp install`,
