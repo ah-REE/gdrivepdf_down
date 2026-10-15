@@ -24,12 +24,15 @@ Use the capture bookmark. One-time setup, then one click per file:
 
 1. On the site, drag the "Capture tool" button to your browser's bookmarks
    bar (press Ctrl+Shift+B if the bar is hidden).
-2. Open the file's preview in that browser and wait for page 1 to render.
-3. Click the bookmark. Every page is captured and the PDF saves itself.
+2. Open the file's link in that browser. Any shared Drive link works.
+3. Click the bookmark. If the preview is not open yet, the bookmark opens it
+   itself, then captures every page and saves the PDF.
 
 The capture runs entirely in your browser: no server, no waiting, and it
 works for any file you can view, including private ones. A small status box
-in the corner shows progress; click it to cancel.
+in the corner shows progress; click it to cancel. On Google Docs, Slides or
+Sheets editor pages a new tab opens; switch to it and click the bookmark
+there to capture.
 
 ## Run the full app locally
 

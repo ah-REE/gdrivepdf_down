@@ -61,7 +61,7 @@ export default function StaticApp() {
           <span className="brand-name">GDrive Down</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v1.4</span>
+          <span className="topbar-version">v1.5</span>
           <button
             type="button"
             className="icon-btn"
@@ -150,9 +150,9 @@ export default function StaticApp() {
       <section className="capture-card reveal reveal-3" aria-label="Capture a view-only file">
         <span className="caps">View-only file, download disabled?</span>
         <p className="capture-sub">
-          Use the capture bookmark. It runs entirely in this browser: it reads the rendered
-          preview pages and saves them as one PDF. No server, no waiting, and it works for
-          any file you can view, including private ones.
+          Use the capture bookmark. Open the file's link in this browser, then click the
+          bookmark: it opens the preview itself, captures every page and saves one PDF.
+          Runs locally and works for private files too.
         </p>
         <ol className="capture-steps">
           <li>
@@ -170,8 +170,11 @@ export default function StaticApp() {
             </a>{' '}
             to your bookmarks bar. No bar? Press Ctrl+Shift+B to show it.
           </li>
-          <li>Open the file preview in this browser and wait for page 1 to render.</li>
-          <li>Click the bookmark. The pages are captured and the PDF saves itself.</li>
+          <li>Open the file's link in this browser. Any shared Drive link works.</li>
+          <li>
+            Click the bookmark. If the preview is not open, it opens it, then captures and
+            saves the PDF on its own.
+          </li>
         </ol>
         <div className="capture-actions">
           <button type="button" className="btn-ghost" onClick={copyBookmark}>
@@ -180,7 +183,7 @@ export default function StaticApp() {
           <span className="capture-note">
             {dragTip
               ? 'Create a new bookmark in your browser and paste the copied code as its URL.'
-              : 'Tip: the capture runs locally and can be stopped by clicking the status box.'}
+              : 'On Google Docs, Slides or Sheets editor pages a new tab opens: switch to it and click the bookmark there.'}
           </span>
         </div>
       </section>
