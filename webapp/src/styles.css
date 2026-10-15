@@ -658,6 +658,70 @@ kbd {
   color: var(--muted);
 }
 
+/* ---------------------------------- wake banner ------------------------ */
+
+.wake {
+  margin-top: var(--sp-5);
+  background: color-mix(in oklab, var(--accent), transparent 94%);
+  border: 1px solid color-mix(in oklab, var(--accent), transparent 62%);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-4) var(--sp-5);
+  animation: stamp var(--motion-base) var(--ease) both;
+}
+
+.wake-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.wake-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.wake-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.wake-title {
+  font-weight: 600;
+  font-size: 14.5px;
+}
+
+.wake-sub {
+  color: var(--fg-2);
+  font-size: 13px;
+  padding-top: 2px;
+}
+
+.wake-sub a {
+  color: var(--fg);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.wake-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: none;
+}
+
+.wake-elapsed {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.wake-track {
+  margin-top: var(--sp-3);
+  height: 3px;
+}
+
 /* ---------------------------------- result ----------------------------- */
 
 .result {

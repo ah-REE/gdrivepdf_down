@@ -1,0 +1,21 @@
+# Render Blueprint — deploys the GDrive Down backend as a Docker web service.
+# Free plan: the service sleeps after ~15 min idle; the UI shows a
+# "Waking the server up…" banner with a progress bar on first contact.
+services:
+  - type: web
+    name: gdrive-down-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: GDD_HOST
+        value: 0.0.0.0
+      - key: GDD_HEADLESS_ONLY
+        value: "1"
+      - key: GDD_DEVICE_SCALE
+        value: "1"
+      - key: GDD_VIEWPORT_H
+        value: "1400"

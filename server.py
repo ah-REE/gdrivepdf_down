@@ -23,6 +23,8 @@ Google endpoints and the local browser.
 import argparse
 import asyncio
 import base64
+import os
+import platform
 import sys
 import threading
 import time
@@ -33,6 +35,7 @@ from pathlib import Path
 
 import requests
 from fastapi import Body, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -45,14 +48,28 @@ if str(_ROOT) not in sys.path:
 import gdrive_down as gd
 
 VERSION = "1.1.0"
-HOST = "127.0.0.1"
+HOST = os.environ.get("GDD_HOST", "127.0.0.1")
 DEFAULT_PORT = 8756
+# Tuning knobs for low-memory hosts (Render free tier) via env vars.
+DEVICE_SCALE = float(os.environ.get("GDD_DEVICE_SCALE", "2"))
+VIEWPORT_H = int(os.environ.get("GDD_VIEWPORT_H", "2000"))
 
 ROOT = Path(__file__).resolve().parent
 DOWNLOADS = ROOT / "downloads"
 DIST = ROOT / "webapp" / "dist"
 
 app = FastAPI(title="GDrive Down", version=VERSION)
+
+# The UI can be hosted on another origin (e.g. Vercel) and call this API.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Only one browser capture at a time (keeps RAM sane on small hosts).
+CAPTURE_LOCK = threading.Lock()
 
 MEDIA_TYPES = {
     "pdf": "application/pdf",
@@ -81,10 +98,13 @@ class Job:
     error: dict | None = None
     status: str = "queued"  # queued | running | done | error
     lock: threading.Lock = field(default_factory=threading.Lock)
+    seq: int = 0
 
     def emit(self, ev: dict):
         with self.lock:
             ev["t"] = round(time.time() - self.created, 3)
+            self.seq += 1
+            ev["seq"] = self.seq
             if ev.get("type") == "stage":
                 self.stages[ev["stage"]] = ev["state"]
             elif ev.get("type") == "done":
@@ -300,16 +320,24 @@ async (i) => {
 """
 
 
+def _browser_args():
+    """Extra Chromium flags for containers (root, small /dev/shm, no GPU)."""
+    if platform.system() == "Linux":
+        return ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+    return []
+
+
 def _launch_browser(pw, headless: bool):
     """Prefer browsers already installed on the machine (no extra download)."""
     errors = []
     for channel in ("msedge", "chrome"):
         try:
-            return pw.chromium.launch(channel=channel, headless=headless), channel
+            return pw.chromium.launch(
+                channel=channel, headless=headless, args=_browser_args()), channel
         except Exception as e:  # noqa: BLE001
             errors.append("%s: %s" % (channel, str(e).splitlines()[0] if str(e) else "?"))
     try:
-        return pw.chromium.launch(headless=headless), "chromium"
+        return pw.chromium.launch(headless=headless, args=_browser_args()), "chromium"
     except Exception as e:  # noqa: BLE001
         errors.append("chromium: %s" % (str(e).splitlines()[0] if str(e) else "?"))
     raise RuntimeError(
@@ -369,20 +397,21 @@ def capture_with_browser(job: Job, file_id: str, title: str | None,
                 try:
                     ctx = pw.chromium.launch_persistent_context(
                         str(profile_dir), channel=channel, headless=False,
-                        viewport={"width": 1360, "height": 2000})
+                        args=_browser_args(),
+                        viewport={"width": 1360, "height": VIEWPORT_H})
                     break
                 except Exception:  # noqa: BLE001
                     ctx = None
             if ctx is None:
                 ctx = pw.chromium.launch_persistent_context(
-                    str(profile_dir), headless=False,
-                    viewport={"width": 1360, "height": 2000})
+                    str(profile_dir), headless=False, args=_browser_args(),
+                    viewport={"width": 1360, "height": VIEWPORT_H})
             page = ctx.pages[0] if ctx.pages else ctx.new_page()
         else:
             browser, _channel = _launch_browser(pw, headless=True)
             ctx = browser.new_context(
-                viewport={"width": 1360, "height": 2000},
-                device_scale_factor=2)
+                viewport={"width": 1360, "height": VIEWPORT_H},
+                device_scale_factor=DEVICE_SCALE)
             page = ctx.new_page()
 
         try:
@@ -424,12 +453,34 @@ def run_capture_stage(job: Job, file_id: str, title: str | None) -> bool:
                   "message": "Playwright is not installed.",
                   "hint": "Run: python -m pip install playwright"})
         return False
+    if CAPTURE_LOCK.locked():
+        job.emit({"type": "log",
+                  "message": "Another capture is running — this one starts when it finishes."})
+    if not CAPTURE_LOCK.acquire(timeout=900):
+        job.emit({"type": "error",
+                  "message": "The capture queue stayed busy for 15 minutes.",
+                  "hint": "Try again shortly."})
+        return False
+    try:
+        return _capture_stage_locked(job, file_id, title)
+    finally:
+        CAPTURE_LOCK.release()
+
+
+def _capture_stage_locked(job: Job, file_id: str, title: str | None) -> bool:
     try:
         job.emit({"type": "log", "message": "Launching browser for automatic capture…"})
         out = capture_with_browser(job, file_id, title, headful_persistent=False)
         _finish_ok(job, out)
         return True
     except CaptureAuthNeeded:
+        if os.environ.get("GDD_HEADLESS_ONLY") == "1":
+            job.emit({"type": "error",
+                      "message": "This file needs a signed-in browser.",
+                      "hint": "The hosted backend can't sign in to Google accounts. "
+                              "Link-shared files capture automatically; for private "
+                              "files, run the app locally."})
+            return False
         job.emit({"type": "log",
                   "message": "Google asked for sign-in. A browser window will open — "
                              "sign in there once; capture continues automatically "
@@ -566,7 +617,7 @@ else:
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="server", description="GDrive Down web app")
-    ap.add_argument("--port", type=int, default=DEFAULT_PORT)
+    ap.add_argument("--port", type=int, default=int(os.environ.get("PORT", DEFAULT_PORT)))
     ap.add_argument("--no-browser", action="store_true")
     args = ap.parse_args(argv)
 

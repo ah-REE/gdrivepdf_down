@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import LinkComposer from './components/LinkComposer.jsx'
 import PipelineRail from './components/PipelineRail.jsx'
 import ResultCard from './components/ResultCard.jsx'
 import HistoryList from './components/HistoryList.jsx'
+import WakeBanner from './components/WakeBanner.jsx'
 import { BrandMark, IconAlert } from './components/Glyphs.jsx'
-import { apiListJobs, apiStartJob, openJobSocket } from './lib/api.js'
+import { apiHealth, apiListJobs, apiStartJob, openJobSocket } from './lib/api.js'
 
 function detect(link) {
   const t = (link || '').trim()
@@ -46,34 +47,90 @@ export default function App() {
   const [job, setJob] = useState(null)
   const [history, setHistory] = useState([])
   const [now, setNow] = useState(Date.now())
+  const [server, setServer] = useState({ status: 'unknown', since: null })
+  const [pendingStart, setPendingStart] = useState(null)
+
   const wsRef = useRef(null)
+  const wsRetryRef = useRef(0)
+  const lastSeqRef = useRef(0)
+  const wasWakingRef = useRef(false)
+  const reconnectTimerRef = useRef(null)
+  const jobRunningRef = useRef(false)
+  const serverStatusRef = useRef('unknown')
+  const startRef = useRef(null)
 
   const detectInfo = useMemo(() => detect(link), [link])
   const running = Boolean(job && (job.status === 'queued' || job.status === 'running'))
+  const waking = server.status === 'waking'
 
   useEffect(() => {
-    refreshHistory()
-    return () => {
-      if (wsRef.current) wsRef.current.close()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
-    if (!running) return undefined
-    const iv = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(iv)
+    jobRunningRef.current = running
   }, [running])
 
-  async function refreshHistory() {
+  useEffect(() => {
+    serverStatusRef.current = server.status
+  }, [server.status])
+
+  // Tick the clock while something is in progress (job or server wake).
+  useEffect(() => {
+    if (!running && !waking) return undefined
+    const iv = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(iv)
+  }, [running, waking])
+
+  const refreshHistory = useCallback(async () => {
     try {
       setHistory(await apiListJobs())
     } catch {
       /* server restarting — keep the last known list */
     }
-  }
+  }, [])
+
+  const checkHealth = useCallback(async () => {
+    const ok = await apiHealth()
+    if (ok) {
+      if (wasWakingRef.current) refreshHistory()
+      wasWakingRef.current = false
+      setServer((prev) => (prev.status === 'awake' ? prev : { status: 'awake', since: null }))
+    } else {
+      wasWakingRef.current = true
+      setServer((prev) =>
+        prev.status === 'waking' ? prev : { status: 'waking', since: Date.now() },
+      )
+    }
+    return ok
+  }, [refreshHistory])
+
+  // Initial probe + re-check when the tab regains focus on a sleeping server.
+  useEffect(() => {
+    checkHealth()
+    const onVis = () => {
+      if (document.visibilityState === 'visible' && serverStatusRef.current !== 'awake') {
+        checkHealth()
+      }
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      document.removeEventListener('visibilitychange', onVis)
+      if (wsRef.current) wsRef.current.close()
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
+    }
+  }, [checkHealth])
+
+  // Poll while the server is waking.
+  useEffect(() => {
+    if (server.status !== 'waking') return undefined
+    const iv = setInterval(() => {
+      checkHealth()
+    }, 3000)
+    return () => clearInterval(iv)
+  }, [server.status, checkHealth])
 
   function applyEvent(ev) {
+    if (typeof ev.seq === 'number') {
+      if (ev.seq <= lastSeqRef.current) return
+      lastSeqRef.current = ev.seq
+    }
     setJob((prev) => {
       if (!prev) return prev
       const next = {
@@ -107,42 +164,90 @@ export default function App() {
     })
   }
 
-  async function start(linkArg = link, modeArg = mode) {
-    const info = detect(linkArg)
-    if (!info || !info.id || running) return
-    if (wsRef.current) {
-      wsRef.current.close()
-      wsRef.current = null
-    }
-    setJob({
-      status: 'running',
-      stages: { direct: 'idle', export: 'idle', capture: 'idle' },
-      progress: {},
-      logs: [],
-      activeStage: null,
-      result: null,
-      error: null,
-      startedAt: Date.now(),
-      link: linkArg,
-      mode: modeArg,
+  const connectSocketRef = useRef(null)
+  connectSocketRef.current = (id) => {
+    wsRef.current = openJobSocket(id, applyEvent, () => {
+      // Unexpected close — resume the stream if the job is still in flight.
+      if (jobRunningRef.current && wsRetryRef.current < 6) {
+        wsRetryRef.current += 1
+        reconnectTimerRef.current = setTimeout(() => {
+          connectSocketRef.current?.(id)
+        }, 1800)
+      }
+      refreshHistory()
     })
-    setNow(Date.now())
-    try {
-      const { id } = await apiStartJob(linkArg, modeArg)
-      setJob((prev) => (prev ? { ...prev, id } : prev))
-      wsRef.current = openJobSocket(id, applyEvent, () => refreshHistory())
-    } catch (e) {
-      setJob((prev) => ({
-        ...(prev || {}),
-        status: 'error',
-        finishedAt: Date.now(),
-        error: {
-          message: e.message,
-          hint: 'Check that the local server is still running.',
-        },
-      }))
-    }
   }
+
+  const start = useCallback(
+    async (linkArg = link, modeArg = mode) => {
+      const info = detect(linkArg)
+      if (!info || !info.id || jobRunningRef.current) return
+      if (serverStatusRef.current === 'waking') {
+        setPendingStart({ link: linkArg, mode: modeArg })
+        return
+      }
+      if (wsRef.current) {
+        try {
+          wsRef.current.close()
+        } catch {
+          /* noop */
+        }
+        wsRef.current = null
+      }
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
+      lastSeqRef.current = 0
+      wsRetryRef.current = 0
+      setPendingStart(null)
+      setJob({
+        status: 'running',
+        stages: { direct: 'idle', export: 'idle', capture: 'idle' },
+        progress: {},
+        logs: [],
+        activeStage: null,
+        result: null,
+        error: null,
+        startedAt: Date.now(),
+        link: linkArg,
+        mode: modeArg,
+      })
+      setNow(Date.now())
+      try {
+        const { id } = await apiStartJob(linkArg, modeArg)
+        setJob((prev) => (prev ? { ...prev, id } : prev))
+        connectSocketRef.current?.(id)
+      } catch (e) {
+        if (e.isNetwork) {
+          // Server unreachable (asleep / restarting): arm the wake flow and
+          // start the job automatically once it answers again.
+          wasWakingRef.current = true
+          setServer({ status: 'waking', since: Date.now() })
+          setPendingStart({ link: linkArg, mode: modeArg })
+          setJob(null)
+        } else {
+          setJob((prev) => ({
+            ...(prev || {}),
+            status: 'error',
+            finishedAt: Date.now(),
+            error: {
+              message: e.message,
+              hint: 'Check that the server is still reachable.',
+            },
+          }))
+        }
+      }
+    },
+    [link, mode],
+  )
+  startRef.current = start
+
+  // Auto-start once the server finishes waking, if the user already asked.
+  useEffect(() => {
+    if (server.status === 'awake' && pendingStart) {
+      const ps = pendingStart
+      setPendingStart(null)
+      startRef.current?.(ps.link, ps.mode)
+    }
+  }, [server.status, pendingStart])
 
   function retry() {
     start(job?.link || link, job?.mode || mode)
@@ -172,7 +277,7 @@ export default function App() {
           <span className="brand-name">GDrive Down</span>
         </div>
         <div className="topbar-meta">
-          v1.1 <span className="dot">·</span> runs on 127.0.0.1
+          v1.1 <span className="dot">·</span> local · hosted
         </div>
       </header>
 
@@ -192,9 +297,14 @@ export default function App() {
         setMode={setMode}
         onSubmit={() => start()}
         running={running}
+        waking={waking}
         demoteCta={demoteCta}
         detectInfo={detectInfo}
       />
+
+      {waking ? (
+        <WakeBanner since={server.since} now={now} onRetryNow={checkHealth} />
+      ) : null}
 
       <PipelineRail job={job} now={now} />
 
@@ -211,7 +321,7 @@ export default function App() {
       <HistoryList jobs={history} onRetry={retryFromHistory} />
 
       <footer className="footer reveal reveal-3">
-        <span>Runs entirely on this machine. Nothing leaves it except requests to Google.</span>
+        <span>Runs on your machine — or host the backend and use it from anywhere.</span>
         <span className="mono">prefer the terminal? python gdrive_down.py</span>
       </footer>
     </div>

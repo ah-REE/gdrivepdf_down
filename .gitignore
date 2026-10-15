@@ -17,3 +17,5 @@ tests/fixture_out.pdf
 
 # Personal content downloads (kept local on purpose)
 Chapter_*.pdf
+
+.vercel

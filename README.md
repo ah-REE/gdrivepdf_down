@@ -6,7 +6,7 @@ Download PDF / PPT / PPTX files from a Google Drive link — including
 **view-only files whose download option has been disabled** — with an
 automatic browser-capture mode.
 
-- **Web app (recommended)** — a local web UI: paste a link, watch the
+- **Web app (recommended)** — a web UI: paste a link, watch the
   pipeline, click save. The view-only capture is fully automatic.
 - **CLI** — `gdrive_down.py` for the terminal.
 
@@ -56,15 +56,15 @@ automates this whole step.
 
 ---
 
-## Deploying the UI to Vercel
+## Hosted setup: UI on Vercel + backend on Render (free)
 
-**Live now:** https://gdrivedown.vercel.app — UI-only until a backend is
-attached (see below); file downloads need a backend that is reachable
-from the browser.
+**Live now:** https://gdrivedown.vercel.app — backed by the Render API
+when configured (see below).
 
-This repo ships a `vercel.json`, so the **frontend** can be deployed to
-Vercel directly: import the repository on Vercel and deploy — no extra
-settings. Vercel runs `npm --prefix webapp install`,
+### The UI (Vercel)
+
+This repo ships a `vercel.json`: import the repository on Vercel and
+deploy — no extra settings. Vercel runs `npm --prefix webapp install`,
 `npm --prefix webapp run build` and serves `webapp/dist`.
 
 **What Vercel can and cannot host:**
@@ -72,25 +72,44 @@ settings. Vercel runs `npm --prefix webapp install`,
 | Part | Vercel? | Why |
 | --- | --- | --- |
 | React UI | ✅ | Static build, no server needed |
-| Direct / export downloads | ⚠️ | Only if you point the UI at a reachable backend (below) |
-| Browser capture (view-only files) | ❌ | Needs a real browser and long-running jobs — not possible on serverless |
+| Direct / export downloads | ✅ with a backend | Works when the UI points at a reachable backend |
+| Browser capture (view-only files) | ✅ with a backend | Runs on the backend host — not on Vercel itself |
 
 The download engine (`server.py`) is a long-running service with
 WebSockets and a headless browser; serverless functions can't run it.
-Recommended setups:
+
+### The backend (Render free tier)
+
+The repo ships a `render.yaml` Blueprint and a `Dockerfile`:
+
+1. Create a free account at [render.com](https://render.com) (GitHub sign-in is easiest).
+2. **New +** → **Blueprint** → pick this repository → **Apply**.
+3. Render builds the Docker image and deploys `gdrive-down-api` (Singapore).
+
+Then point the UI at it: in the Vercel project set
+`VITE_API_BASE=https://gdrive-down-api.onrender.com`
+(Settings → Environment Variables) and redeploy.
+
+Render free-tier notes:
+
+- The service **sleeps after ~15 min idle**. The UI shows a
+  “Waking the server up…” banner with a progress bar on first contact
+  (~60 s cold start) and starts your job automatically once it's awake.
+- 512 MB RAM: only one capture runs at a time and pages render at a
+  reduced scale; unusually large decks may run out of memory.
+- Fully-private files (Google sign-in required) can't be captured on the
+  hosted backend — run locally for those. Link-shared files work fully.
+
+### Alternative backends
 
 - **Run locally** — full features, nothing to host.
-- **Host the UI on Vercel + a backend somewhere reachable** (home server
-  with a tunnel, small VPS, …) — set the build-time env var in the
-  Vercel project:
+- **Any other host** — set the build-time env var in the Vercel project:
 
 ```text
 VITE_API_BASE=https://your-backend.example.com
 ```
 
-The UI reads `VITE_API_BASE` at build time. Without it, the deployed UI
-stays usable as a UI preview but shows a clear "server unreachable"
-state when you press Get file.
+The UI reads `VITE_API_BASE` at build time.
 
 ---
 
@@ -101,7 +120,9 @@ gdrive_down.py    CLI downloader (direct / export / capture strategies)
 server.py         FastAPI backend for the web app (jobs + WebSocket + capture)
 webapp/           React UI (Vite). dist/ is committed so local clones work without Node
 tests/            E2E checks (python tests/test_e2e.py) + preview fixture
-vercel.json       Static UI deployment config
+vercel.json       Static UI deployment config (Vercel)
+render.yaml       Render Blueprint — free-tier backend deployment
+Dockerfile        Backend image (API + Playwright browser)
 GDrive Down.bat   one-click launcher (Windows)
 ```
 
@@ -126,14 +147,14 @@ file ID.
   the on-screen preview; there is no text layer.
 - Files that are completely private can't be retrieved (capture needs
   the file to at least open for you in a browser).
-- "Quota exceeded" files need a retry later.
+- “Quota exceeded” files need a retry later.
 - Folder links are not supported.
 
 ## Requirements
 
 - Python 3.10+ (CLI + web app backend)
 - Node 18+ — only to rebuild the frontend, not needed for normal use
-- Edge or Chrome — used for automatic capture
+- Edge or Chrome — used for automatic capture (local runs)
 
 ## Fair use
 

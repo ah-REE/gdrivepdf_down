@@ -16,12 +16,44 @@ function wsUrl(path) {
   return `${proto}://${window.location.host}${path}`
 }
 
+function timeoutSignal(ms) {
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), ms)
+  return { signal: ctrl.signal, done: () => clearTimeout(t) }
+}
+
+// Backend health — used to detect a sleeping server (e.g. Render free tier).
+export async function apiHealth(timeoutMs = 8000) {
+  const ts = timeoutSignal(timeoutMs)
+  try {
+    const res = await fetch(apiPath('/api/health'), { signal: ts.signal })
+    if (!res.ok) return false
+    const data = await res.json().catch(() => ({}))
+    return data.ok === true
+  } catch {
+    return false
+  } finally {
+    ts.done()
+  }
+}
+
 export async function apiStartJob(link, mode) {
-  const res = await fetch(apiPath('/api/jobs'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ link, mode }),
-  })
+  const ts = timeoutSignal(25000)
+  let res
+  try {
+    res = await fetch(apiPath('/api/jobs'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ link, mode }),
+      signal: ts.signal,
+    })
+  } catch (e) {
+    const err = new Error('Could not reach the download server.')
+    err.isNetwork = true
+    throw err
+  } finally {
+    ts.done()
+  }
   if (!res.ok) {
     let detail = 'Could not start the job.'
     try {

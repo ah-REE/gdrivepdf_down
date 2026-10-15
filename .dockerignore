@@ -1,0 +1,11 @@
+.git
+.gitignore
+.vercel
+**/node_modules
+webapp/src
+docs
+tests
+downloads
+.browser_profile
+__pycache__
+*.md

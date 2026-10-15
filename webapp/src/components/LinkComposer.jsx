@@ -16,6 +16,7 @@ export default function LinkComposer({
   setMode,
   onSubmit,
   running,
+  waking,
   demoteCta,
   detectInfo,
 }) {
@@ -77,6 +78,8 @@ export default function LinkComposer({
           >
             {running ? (
               'Working…'
+            ) : waking ? (
+              'Waiting for server…'
             ) : (
               <>
                 Get file <IconArrowRight size={16} />
