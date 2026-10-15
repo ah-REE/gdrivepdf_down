@@ -202,6 +202,7 @@ def run_job(job: Job):
                     session, file_id, str(DOWNLOADS), job.name,
                     progress_cb=_make_progress_cb(job, "direct"))
                 if status == "ok":
+                    job.emit({"type": "stage", "stage": "direct", "state": "ok"})
                     _finish_ok(job, payload)
                     return
                 last_reason = payload
@@ -217,6 +218,7 @@ def run_job(job: Job):
                     session, kind, file_id, str(DOWNLOADS), job.name,
                     progress_cb=_make_progress_cb(job, "export"))
                 if status == "ok":
+                    job.emit({"type": "stage", "stage": "export", "state": "ok"})
                     _finish_ok(job, payload)
                     return
                 last_reason = payload
@@ -473,6 +475,7 @@ def _capture_stage_locked(job: Job, file_id: str, title: str | None) -> bool:
     try:
         job.emit({"type": "log", "message": "Launching browser for automatic capture…"})
         out = capture_with_browser(job, file_id, title, headful_persistent=False)
+        job.emit({"type": "stage", "stage": "capture", "state": "ok"})
         _finish_ok(job, out)
         return True
     except CaptureAuthNeeded:
@@ -490,6 +493,7 @@ def _capture_stage_locked(job: Job, file_id: str, title: str | None) -> bool:
                              "(remembered for next time)."})
         try:
             out = capture_with_browser(job, file_id, title, headful_persistent=True)
+            job.emit({"type": "stage", "stage": "capture", "state": "ok"})
             _finish_ok(job, out)
             return True
         except CaptureAuthNeeded:

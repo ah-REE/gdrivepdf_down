@@ -277,7 +277,7 @@ export default function App() {
           <span className="brand-name">GDrive Down</span>
         </div>
         <div className="topbar-meta">
-          v1.1 <span className="dot">·</span> local · hosted
+          v1.1 <span className="dot">·</span> local or hosted
         </div>
       </header>
 

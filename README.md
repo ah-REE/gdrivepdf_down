@@ -58,8 +58,8 @@ automates this whole step.
 
 ## Hosted setup: UI on Vercel + backend on Render (free)
 
-**Live now:** https://gdrivedown.vercel.app — backed by the Render API
-when configured (see below).
+**Live now:** https://gdrivedown.vercel.app — fully wired: Vercel UI +
+Render API. Open it and paste a link; the free tier wakes on demand.
 
 ### The UI (Vercel)
 
