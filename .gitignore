@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# Local runtime artifacts
+downloads/
+.browser_profile/
+capture_script.js
+tests/fixture_out.pdf
+
+# Vercel CLI
+.vercel/
+.env*
+
+# Personal content downloads (kept local on purpose)
+Chapter_*.pdf

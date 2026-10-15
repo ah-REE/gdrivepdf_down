@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>fixture — drive preview stand-in</title>
+  <style>
+    body { margin: 0; background: #101214; }
+    .page { width: 600px; height: 400px; margin: 40px auto; background: #1c1f24; overflow: hidden; }
+    .page img { width: 100%; height: 100%; display: block; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+    (function () {
+      var COLORS = ['#c0392b', '#27ae60', '#2980b9'];
+      var root = document.getElementById('root');
+      var pages = [];
+      for (var i = 0; i < 3; i++) {
+        var d = document.createElement('div');
+        d.className = 'page';
+        root.appendChild(d);
+        pages.push(d);
+      }
+      var io = new IntersectionObserver(function (ents) {
+        ents.forEach(function (e) {
+          if (e.isIntersecting && !e.target.querySelector('img')) {
+            var idx = pages.indexOf(e.target);
+            var c = document.createElement('canvas');
+            c.width = 600; c.height = 400;
+            var g = c.getContext('2d');
+            g.fillStyle = COLORS[idx];
+            g.fillRect(0, 0, 600, 400);
+            g.fillStyle = '#fff';
+            g.font = '48px sans-serif';
+            g.fillText('Page ' + (idx + 1), 210, 215);
+            c.toBlob(function (b) {
+              var img = document.createElement('img');
+              img.src = URL.createObjectURL(b);   // blob: URL — same pattern the Drive preview uses
+              e.target.appendChild(img);
+            }, 'image/png');
+          }
+        });
+      }, { threshold: 0.1 });
+      pages.forEach(function (p) { io.observe(p); });
+    })();
+  </script>
+</body>
+</html>

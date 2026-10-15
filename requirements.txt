@@ -1,0 +1,5 @@
+requests>=2.28
+Pillow>=9.0
+fastapi>=0.110
+uvicorn[standard]>=0.29
+playwright>=1.44
