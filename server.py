@@ -449,6 +449,7 @@ def run_capture_stage(job: Job, file_id: str, title: str | None) -> bool:
     try:
         from playwright.sync_api import sync_playwright  # noqa: F401
     except ImportError:
+        job.emit({"type": "stage", "stage": "capture", "state": "failed"})
         job.emit({"type": "error",
                   "message": "Playwright is not installed.",
                   "hint": "Run: python -m pip install playwright"})
@@ -457,6 +458,7 @@ def run_capture_stage(job: Job, file_id: str, title: str | None) -> bool:
         job.emit({"type": "log",
                   "message": "Another capture is running — this one starts when it finishes."})
     if not CAPTURE_LOCK.acquire(timeout=900):
+        job.emit({"type": "stage", "stage": "capture", "state": "failed"})
         job.emit({"type": "error",
                   "message": "The capture queue stayed busy for 15 minutes.",
                   "hint": "Try again shortly."})
@@ -475,6 +477,7 @@ def _capture_stage_locked(job: Job, file_id: str, title: str | None) -> bool:
         return True
     except CaptureAuthNeeded:
         if os.environ.get("GDD_HEADLESS_ONLY") == "1":
+            job.emit({"type": "stage", "stage": "capture", "state": "failed"})
             job.emit({"type": "error",
                       "message": "This file needs a signed-in browser.",
                       "hint": "The hosted backend can't sign in to Google accounts. "
@@ -490,19 +493,23 @@ def _capture_stage_locked(job: Job, file_id: str, title: str | None) -> bool:
             _finish_ok(job, out)
             return True
         except CaptureAuthNeeded:
+            job.emit({"type": "stage", "stage": "capture", "state": "failed"})
             job.emit({"type": "error",
                       "message": "Sign-in did not complete.",
                       "hint": "Run again and sign in when the browser window opens."})
             return False
         except Exception as e:  # noqa: BLE001
+            job.emit({"type": "stage", "stage": "capture", "state": "failed"})
             job.emit({"type": "error", "message": "Capture failed: %s" % e})
             return False
     except CaptureNoPages as e:
+        job.emit({"type": "stage", "stage": "capture", "state": "failed"})
         job.emit({"type": "error", "message": "Capture failed: %s" % e,
                   "hint": "If the file is quota-limited try again later; "
                           "if it is private, share it as 'Anyone with the link -> Viewer'."})
         return False
     except Exception as e:  # noqa: BLE001
+        job.emit({"type": "stage", "stage": "capture", "state": "failed"})
         job.emit({"type": "error", "message": "Capture failed: %s" % e})
         return False
 
