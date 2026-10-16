@@ -10,7 +10,6 @@ import { apiHealth, apiListJobs, apiStartJob, openJobSocket } from './lib/api.js
 import { MODE } from './config.js'
 import { detect } from './lib/link.js'
 import StaticApp from './components/StaticApp.jsx'
-import Ticker from './components/Ticker.jsx'
 
 export default function App() {
   return MODE === 'static' ? <StaticApp /> : <BackendApp />
@@ -268,8 +267,6 @@ function BackendApp() {
           <span className="topbar-version">v3.0</span>
         </div>
       </header>
-
-      <Ticker />
 
       <section className="hero reveal reveal-1">
         <h1>

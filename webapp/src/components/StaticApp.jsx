@@ -7,7 +7,6 @@ import {
   IconPaste,
 } from './Glyphs.jsx'
 import { detect, directDownloadUrl } from '../lib/link.js'
-import Ticker from './Ticker.jsx'
 import bookmarkletSrc from '../capture/bookmarklet.min.js?raw'
 
 // The bookmarklet link is set imperatively so React never sees a
@@ -110,8 +109,6 @@ export default function StaticApp() {
           <span className="topbar-version">v3.0</span>
         </div>
       </header>
-
-      <Ticker />
 
       <section className="hero reveal reveal-1">
         <h1>
