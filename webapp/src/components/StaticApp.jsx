@@ -4,11 +4,8 @@ import {
   BrandMark,
   IconDownload,
   IconLink,
-  IconMoon,
   IconPaste,
-  IconSun,
 } from './Glyphs.jsx'
-import { useTheme } from '../lib/useTheme.js'
 import { detect, directDownloadUrl } from '../lib/link.js'
 import bookmarkletSrc from '../capture/bookmarklet.min.js?raw'
 
@@ -17,7 +14,6 @@ import bookmarkletSrc from '../capture/bookmarklet.min.js?raw'
 const BOOKMARKLET_HREF = 'javascript:' + bookmarkletSrc.trim()
 
 export default function StaticApp() {
-  const { theme, toggle } = useTheme()
   const [link, setLink] = useState('')
   const [copied, setCopied] = useState(false)
   const [dragTip, setDragTip] = useState(false)
@@ -110,16 +106,7 @@ export default function StaticApp() {
           <span className="brand-name">GDrive Down</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v1.6</span>
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={toggle}
-            aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-            title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-          >
-            {theme === 'dark' ? <IconSun size={17} /> : <IconMoon size={17} />}
-          </button>
+          <span className="topbar-version">v2.0</span>
         </div>
       </header>
 

@@ -16,9 +16,9 @@
   var tickTimer = null;
 
   var C = {
-    fg: '#eaf0f8', sub: '#b9c3d4', mut: '#8b95a7',
-    bg: '#0b0f16', border: 'rgba(255,255,255,.09)',
-    track: '#1b2432', accent: '#3ed5a3'
+    fg: '#e9eefb', sub: '#a8b4cf', mut: '#7d8aab',
+    bg: 'rgba(10,15,26,.9)', border: 'rgba(94,190,255,.3)',
+    track: 'rgba(120,150,220,.18)', accent: '#45d6ff', accent2: '#8b7cff'
   };
 
   function el(tag, css, parent) {
@@ -31,7 +31,7 @@
   function logo(size) {
     var s = '<svg width="' + size + '" height="' + size + '" viewBox="0 0 32 32" style="display:block">'
       + '<rect width="32" height="32" rx="9" fill="' + C.accent + '"/>'
-      + '<path d="M16 7v12m0 0l-5-5m5 5l5-5M9.5 25h13" stroke="#04140d" stroke-width="2.6" '
+      + '<path d="M16 7v12m0 0l-5-5m5 5l5-5M9.5 25h13" stroke="#041018" stroke-width="2.6" '
       + 'stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
     var d = document.createElement('div');
     d.style.cssText = 'flex:none;display:flex';
@@ -54,7 +54,7 @@
       + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis', head);
     timeEl = el('div', 'flex:none;font:500 12px ui-monospace,Menlo,Consolas,monospace;color:' + C.mut, head);
     cancelBtn = el('button', 'flex:none;font:600 12px system-ui,sans-serif;color:#cfd6e2;background:transparent;'
-      + 'border:1px solid rgba(255,255,255,.16);border-radius:8px;padding:6px 12px;cursor:pointer', head);
+      + 'border:1px solid rgba(148,178,255,.22);border-radius:8px;padding:6px 12px;cursor:pointer', head);
     cancelBtn.textContent = 'Cancel';
     cancelBtn.onclick = function () { cancelled = true; cancelBtn.textContent = 'Cancelling…'; };
   }
@@ -63,7 +63,7 @@
     var track = el('div', 'height:6px;border-radius:999px;background:' + C.track
       + ';overflow:hidden;margin-top:12px', parent);
     barEl = el('div', 'height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,'
-      + C.accent + ',#7ee7c4);transition:width .3s ease', track);
+      + C.accent + ',' + C.accent2 + ');box-shadow:0 0 12px rgba(69,214,255,.5);transition:width .3s ease', track);
     var meta = el('div', 'display:flex;justify-content:space-between;gap:10px;margin-top:8px', parent);
     countEl = el('div', 'font:500 11.5px ui-monospace,Menlo,Consolas,monospace;color:' + C.mut, meta);
     el('div', 'font:500 11.5px ui-monospace,Menlo,Consolas,monospace;color:' + C.mut, meta)
@@ -74,7 +74,8 @@
   function buildCornerPanel() {
     panel = el('div', 'position:fixed;top:16px;right:16px;z-index:2147483647;width:340px;max-width:calc(100vw - 32px);'
       + 'background:' + C.bg + ';border:1px solid ' + C.border + ';border-radius:14px;padding:14px 16px;'
-      + 'box-shadow:0 18px 50px rgba(0,0,0,.55);opacity:0;transition:opacity .25s ease', document.body);
+      + 'box-shadow:0 24px 60px rgba(0,0,0,.6),0 0 0 1px rgba(69,214,255,.08);backdrop-filter:blur(14px) saturate(1.2);'
+      + '-webkit-backdrop-filter:blur(14px) saturate(1.2);opacity:0;transition:opacity .25s ease', document.body);
     panel.id = 'gdd-panel';
     buildHeader(panel);
     buildProgress(panel);
@@ -88,7 +89,8 @@
       + 'opacity:0;transition:opacity .25s ease', document.body);
     overlay.id = 'gdd-overlay';
     panel = el('div', 'width:min(1100px,100%);flex:none;background:' + C.bg + ';border:1px solid ' + C.border
-      + ';border-radius:14px;padding:14px 16px;box-shadow:0 18px 50px rgba(0,0,0,.55)', overlay);
+      + ';border-radius:14px;padding:14px 16px;box-shadow:0 24px 60px rgba(0,0,0,.6);backdrop-filter:blur(14px) saturate(1.2);'
+      + '-webkit-backdrop-filter:blur(14px) saturate(1.2)', overlay);
     panel.id = 'gdd-panel';
     buildHeader(panel);
     buildProgress(panel);

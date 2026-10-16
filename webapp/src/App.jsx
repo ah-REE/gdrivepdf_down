@@ -5,9 +5,8 @@ import PipelineRail from './components/PipelineRail.jsx'
 import ResultCard from './components/ResultCard.jsx'
 import HistoryList from './components/HistoryList.jsx'
 import WakeBanner from './components/WakeBanner.jsx'
-import { BrandMark, IconAlert, IconMoon, IconSun } from './components/Glyphs.jsx'
+import { BrandMark, IconAlert } from './components/Glyphs.jsx'
 import { apiHealth, apiListJobs, apiStartJob, openJobSocket } from './lib/api.js'
-import { useTheme } from './lib/useTheme.js'
 import { MODE } from './config.js'
 import { detect } from './lib/link.js'
 import StaticApp from './components/StaticApp.jsx'
@@ -52,8 +51,6 @@ function BackendApp() {
   const jobRunningRef = useRef(false)
   const serverStatusRef = useRef('unknown')
   const startRef = useRef(null)
-
-  const { theme, toggle } = useTheme()
 
   const detectInfo = useMemo(() => detect(link), [link])
   const running = Boolean(job && (job.status === 'queued' || job.status === 'running'))
@@ -267,16 +264,7 @@ function BackendApp() {
           <span className="brand-name">GDrive Down</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v1.6</span>
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={toggle}
-            aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-            title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-          >
-            {theme === 'dark' ? <IconSun size={17} /> : <IconMoon size={17} />}
-          </button>
+          <span className="topbar-version">v2.0</span>
         </div>
       </header>
 
