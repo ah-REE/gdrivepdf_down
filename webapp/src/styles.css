@@ -941,6 +941,31 @@ kbd {
   color: var(--red);
 }
 
+.capture-more {
+  margin-top: 18px;
+  border-top: 2px solid var(--ink);
+  padding-top: 14px;
+}
+
+.capture-more summary {
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  width: fit-content;
+}
+
+.capture-more summary:hover,
+.capture-more[open] summary {
+  color: var(--ink);
+}
+
+.capture-more .capture-steps {
+  margin-top: 14px;
+}
+
 .ext-progress {
   margin-top: 14px;
   display: flex;

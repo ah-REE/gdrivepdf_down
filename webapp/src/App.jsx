@@ -264,7 +264,7 @@ function BackendApp() {
           <span className="brand-name">GDrive Down</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v3.0</span>
+          <span className="topbar-version">v3.1</span>
         </div>
       </header>
 

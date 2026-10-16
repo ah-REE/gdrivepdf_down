@@ -23,15 +23,20 @@ scan notice for a very large file, press Download anyway.
 Two options. Both run entirely in your browser; nothing goes through any
 server.
 
-**Extension (recommended, nothing to remember):**
+**Extension (recommended, one click to install):**
 
-1. Install once: open `chrome://extensions`, turn on Developer mode, press
-   Load unpacked, and choose the `extension` folder in this project.
+1. On the site, press "Install the extension" and open the setup file it
+   downloads (Windows, Edge or Chrome). It registers the extension with your
+   browser once - no store account, no developer mode.
 2. On the site, paste the link and press "Capture automatically". The
    preview opens in a new tab, every page is captured with a progress panel,
    and the PDF saves itself. The tab closes when it is done.
 3. The extension also adds a "Save as PDF" button on Drive file pages and a
    toolbar popup for pasting links.
+
+Not on Windows, or prefer no install? Load the `extension` folder manually
+in `chrome://extensions` (Developer mode, then Load unpacked), or use the
+bookmark below.
 
 **Bookmark (no install):**
 

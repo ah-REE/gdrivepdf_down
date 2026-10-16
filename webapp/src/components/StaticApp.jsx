@@ -106,7 +106,7 @@ export default function StaticApp() {
           <span className="brand-name">GDrive Down</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v3.0</span>
+          <span className="topbar-version">v3.1</span>
         </div>
       </header>
 
@@ -239,44 +239,62 @@ export default function StaticApp() {
         ) : (
           <>
             <p className="capture-sub">
-              Fully automatic: install the GDrive Down extension once (open{' '}
-              <span className="mono">chrome://extensions</span>, turn on Developer mode, press
-              Load unpacked, pick the <span className="mono">extension</span> folder in the
-              project). The Capture button then appears right here. No installs? Use the
-              bookmark instead:
+              Run it once, and it runs itself: install the GDrive Down extension and the
+              Capture button appears right here. No bookmark to drag, nothing to copy.
             </p>
-            <ol className="capture-steps">
-              <li>
-                Drag{' '}
-                <a
-                  ref={bmRef}
-                  className="drag-btn"
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    setDragTip(true)
-                  }}
-                >
-                  Capture tool
-                </a>{' '}
-                to your bookmarks bar. No bar? Press Ctrl+Shift+B to show it.
-              </li>
-              <li>Open the file's link in this browser. Any shared Drive link works.</li>
-              <li>
-                Click the bookmark. If the preview is not open, it captures and saves the PDF
-                on its own.
-              </li>
-            </ol>
             <div className="capture-actions">
-              <button type="button" className="btn-ghost" onClick={copyBookmark}>
-                {copied ? 'Copied' : 'Copy the bookmark code'}
-              </button>
-              <span className="capture-note">
-                {dragTip
-                  ? 'Create a new bookmark in your browser and paste the copied code as its URL.'
-                  : 'Extension files: github.com/ah-REE/gdrivepdf_down → extension folder.'}
-              </span>
+              <a className="btn-primary" href="/install/gdrive-down-setup.reg" download>
+                <IconDownload size={17} /> Install the extension
+              </a>
+              <span className="capture-note">Windows · works in Edge and Chrome</span>
             </div>
+            <ol className="capture-steps">
+              <li>Press the install button - a tiny setup file downloads.</li>
+              <li>
+                Open it and confirm the prompts. It only tells your browser to install the
+                extension once; nothing else changes on your PC.
+              </li>
+              <li>Reopen your browser. The Capture button shows up here and does the rest.</li>
+            </ol>
+            <details className="capture-more">
+              <summary>Prefer not to install? Use the bookmark</summary>
+              <ol className="capture-steps">
+                <li>
+                  Drag{' '}
+                  <a
+                    ref={bmRef}
+                    className="drag-btn"
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      setDragTip(true)
+                    }}
+                  >
+                    Capture tool
+                  </a>{' '}
+                  to your bookmarks bar. No bar? Press Ctrl+Shift+B to show it.
+                </li>
+                <li>
+                  Open the file's link in this browser, then click the bookmark. The PDF saves
+                  on its own.
+                </li>
+                <li>
+                  Not on Windows? Load the <span className="mono">extension</span> folder
+                  manually in <span className="mono">chrome://extensions</span> (Developer
+                  mode, then Load unpacked).
+                </li>
+              </ol>
+              <div className="capture-actions">
+                <button type="button" className="btn-ghost" onClick={copyBookmark}>
+                  {copied ? 'Copied' : 'Copy the bookmark code'}
+                </button>
+                <span className="capture-note">
+                  {dragTip
+                    ? 'Create a new bookmark in your browser and paste the copied code as its URL.'
+                    : 'Extension source: github.com/ah-REE/gdrivepdf_down'}
+                </span>
+              </div>
+            </details>
           </>
         )}
       </section>
