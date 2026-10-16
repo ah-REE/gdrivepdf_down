@@ -20,19 +20,28 @@ scan notice for a very large file, press Download anyway.
 
 ### View-only files (download disabled)
 
-Use the capture bookmark. One-time setup, then one click per file:
+Two options. Both run entirely in your browser; nothing goes through any
+server.
 
-1. On the site, drag the "Capture tool" button to your browser's bookmarks
-   bar (press Ctrl+Shift+B if the bar is hidden).
-2. Open the file's link in that browser. Any shared Drive link works.
-3. Click the bookmark. If the preview is not open yet, the bookmark opens it
-   itself, then captures every page and saves the PDF.
+**Extension (recommended, nothing to remember):**
 
-The capture runs entirely in your browser: no server, no waiting, and it
-works for any file you can view, including private ones. A small status box
-in the corner shows progress; click it to cancel. On Google Docs, Slides or
-Sheets editor pages a new tab opens; switch to it and click the bookmark
-there to capture.
+1. Install once: open `chrome://extensions`, turn on Developer mode, press
+   Load unpacked, and choose the `extension` folder in this project.
+2. On the site, paste the link and press "Capture automatically". The
+   preview opens in a new tab, every page is captured with a progress panel,
+   and the PDF saves itself. The tab closes when it is done.
+3. The extension also adds a "Save as PDF" button on Drive file pages and a
+   toolbar popup for pasting links.
+
+**Bookmark (no install):**
+
+1. On the site, drag the "Capture tool" button to your bookmarks bar
+   (Ctrl+Shift+B shows the bar).
+2. Open the file's link, then click the bookmark. Every page is captured and
+   the PDF saves itself.
+
+Both options work for any file you can view, including private ones, and
+both build the PDF locally.
 
 ## Run the full app locally
 
@@ -78,6 +87,7 @@ Its API is documented at the top of `server.py`.
 
 ```text
 capture/              The capture bookmarklet (source and minified build)
+extension/            Browser extension: fully automatic capture, no bookmarks needed
 gdrive_down.py        CLI downloader (direct, export and capture strategies)
 server.py             Optional FastAPI backend (jobs, WebSocket, capture)
 webapp/               React UI (Vite). dist/ is committed for local use without Node

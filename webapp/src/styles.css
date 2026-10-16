@@ -1041,6 +1041,17 @@ kbd {
   max-width: 52ch;
 }
 
+.capture-note.error {
+  color: var(--danger);
+}
+
+.ext-progress {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 /* ----------------------------------- history --------------------------- */
 
 .history {
