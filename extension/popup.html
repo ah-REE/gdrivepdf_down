@@ -6,62 +6,64 @@
     body {
       margin: 0;
       width: 300px;
-      background: #05070d;
-      background-image: radial-gradient(rgba(140, 170, 255, 0.12) 1px, transparent 1.4px);
-      background-size: 22px 22px;
-      color: #e9eefb;
-      font: 13px 'Sora', system-ui, sans-serif;
+      background: #f4f1ea;
+      color: #121212;
+      font: 13px 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
       padding: 16px;
     }
-    h1 { font-size: 14px; margin: 0 0 4px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-    h1 .dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 4px;
-      background: #45d6ff;
-      flex: none;
-      box-shadow: 0 0 12px rgba(69, 214, 255, 0.6);
+    h1 {
+      font-size: 12px;
+      margin: 0 0 6px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    p { color: #7d8aab; font-size: 12px; margin: 0 0 12px; }
+    h1 .dot {
+      width: 13px;
+      height: 13px;
+      background: #ff2d20;
+      border: 2px solid #121212;
+      flex: none;
+    }
+    p { color: #6b665c; font-size: 11.5px; margin: 0 0 12px; line-height: 1.55; }
     input {
       width: 100%;
       box-sizing: border-box;
-      background: rgba(8, 12, 22, 0.8);
-      border: 1px solid rgba(148, 178, 255, 0.18);
-      border-radius: 9px;
-      color: #e9eefb;
+      background: #fffefb;
+      border: 2px solid #121212;
+      color: #121212;
       padding: 9px 10px;
-      font: 12px 'Geist Mono', ui-monospace, Menlo, Consolas, monospace;
+      font: 12px 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
     }
-    input:focus { outline: none; border-color: #45d6ff; box-shadow: 0 0 0 3px rgba(69, 214, 255, 0.15); }
+    input:focus { outline: none; border-color: #ff2d20; }
     button {
       margin-top: 8px;
       width: 100%;
-      background: linear-gradient(180deg, #7ae2ff, #35c4f5);
-      color: #041018;
-      border: 0;
-      border-radius: 9px;
+      background: #121212;
+      color: #f4f1ea;
+      border: 2px solid #121212;
       padding: 10px;
-      font: 700 13px 'Sora', system-ui, sans-serif;
+      font: 700 11.5px 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
       cursor: pointer;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 8px 24px rgba(69, 214, 255, 0.25);
     }
+    button:hover:not(:disabled) { background: #ff2d20; border-color: #ff2d20; }
     button.secondary {
-      background: rgba(23, 31, 52, 0.6);
-      color: #a8b4cf;
-      border: 1px solid rgba(148, 178, 255, 0.22);
-      font-weight: 600;
+      background: transparent;
+      color: #121212;
       margin-top: 0;
-      box-shadow: none;
     }
-    button:hover:not(:disabled) { filter: brightness(1.08); }
-    button:disabled { opacity: 0.45; cursor: not-allowed; }
-    #msg { color: #7d8aab; font-size: 11.5px; margin-top: 10px; min-height: 14px; }
-    .hr { height: 1px; background: rgba(148, 178, 255, 0.12); margin: 12px 0; }
+    button.secondary:hover:not(:disabled) { background: #121212; color: #f4f1ea; border-color: #121212; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    #msg { color: #6b665c; font-size: 11px; margin-top: 10px; min-height: 14px; letter-spacing: 0.04em; }
+    .hr { height: 2px; background: #121212; margin: 12px 0; }
   </style>
 </head>
 <body>
-  <h1><span class="dot"></span>GDrive Down</h1>
+  <h1><span class="dot"></span>GDRIVE_DOWN</h1>
   <p>Capture a view-only Drive file to PDF. Runs locally in your browser.</p>
   <button id="tabBtn" class="secondary">Capture the current Drive tab</button>
   <div class="hr"></div>

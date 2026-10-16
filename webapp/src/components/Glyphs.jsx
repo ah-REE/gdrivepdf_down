@@ -42,13 +42,13 @@ export const IconMoon = bold(Moon)
 export function BrandMark() {
   return (
     <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
-      <rect width="32" height="32" rx="9" fill="var(--accent)" />
+      <rect width="32" height="32" fill="var(--red)" />
       <path
         d="M16 7v12m0 0l-5-5m5 5l5-5M9.5 25h13"
-        stroke="var(--accent-ink)"
+        stroke="var(--ink)"
         strokeWidth="2.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
         fill="none"
       />
     </svg>

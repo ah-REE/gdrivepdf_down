@@ -8,9 +8,10 @@
 
   var IMG = 'img[src^="blob:"]';
   var C = {
-    fg: '#e9eefb', sub: '#a8b4cf', mut: '#7d8aab',
-    bg: 'rgba(10,15,26,.9)', border: 'rgba(94,190,255,.3)',
-    track: 'rgba(120,150,220,.18)', accent: '#45d6ff', accent2: '#8b7cff'
+    fg: '#121212', sub: '#46433c', mut: '#6b665c',
+    bg: '#f4f1ea', border: '#121212',
+    track: '#fffefb', accent: '#ff2d20', accent2: '#ff2d20',
+    green: '#0c7a42'
   };
   var running = false;
   var cancelled = false;
@@ -27,7 +28,7 @@
     d.style.cssText = 'flex:none;display:flex';
     d.innerHTML = '<svg width="' + size + '" height="' + size + '" viewBox="0 0 32 32" style="display:block">'
       + '<rect width="32" height="32" rx="9" fill="' + C.accent + '"/>'
-      + '<path d="M16 7v12m0 0l-5-5m5 5l5-5M9.5 25h13" stroke="#041018" stroke-width="2.6" '
+      + '<path d="M16 7v12m0 0l-5-5m5 5l5-5M9.5 25h13" stroke="#121212" stroke-width="2.6" '
       + 'stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
     return d;
   }
@@ -44,28 +45,28 @@
 
   function makeUI() {
     var startedAt = Date.now();
-    var panel = el('div', 'position:fixed;top:16px;right:16px;z-index:2147483647;width:340px;max-width:calc(100vw - 32px);'
-      + 'background:' + C.bg + ';border:1px solid ' + C.border + ';border-radius:14px;padding:14px 16px;'
-      + 'box-shadow:0 24px 60px rgba(0,0,0,.6),0 0 0 1px rgba(69,214,255,.08);backdrop-filter:blur(14px) saturate(1.2);'
-      + '-webkit-backdrop-filter:blur(14px) saturate(1.2);opacity:0;transition:opacity .25s ease', document.body);
+    var panel = el('div', 'position:fixed;top:16px;right:16px;z-index:2147483647;width:360px;max-width:calc(100vw - 32px);'
+      + 'background:' + C.bg + ';border:2px solid ' + C.border + ';padding:14px 16px;'
+      + 'box-shadow:8px 8px 0 rgba(18,18,18,.85);font-family:ui-monospace,Menlo,Consolas,monospace;'
+      + 'opacity:0;transition:opacity .25s ease', document.body);
     panel.id = 'gdd-panel';
     var head = el('div', 'display:flex;align-items:center;gap:10px', panel);
     head.appendChild(logo(22));
-    el('div', 'font:600 14px/1.2 system-ui,sans-serif;color:' + C.fg + ';flex:none', head).textContent = 'GDrive Down';
-    var statusEl = el('div', 'flex:1;min-width:0;font:500 12.5px/1.4 system-ui,sans-serif;color:' + C.sub
+    el('div', 'font:700 13px/1.2 ui-monospace,Menlo,Consolas,monospace;color:' + C.fg + ';flex:none;letter-spacing:.08em', head)
+      .textContent = 'GDRIVE_DOWN';
+    var statusEl = el('div', 'flex:1;min-width:0;font:500 11.5px/1.4 ui-monospace,Menlo,Consolas,monospace;color:' + C.sub
       + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis', head);
-    var timeEl = el('div', 'flex:none;font:500 12px ui-monospace,Menlo,Consolas,monospace;color:' + C.mut, head);
-    var cancelBtn = el('button', 'flex:none;font:600 12px system-ui,sans-serif;color:#cfd6e2;background:transparent;'
-      + 'border:1px solid rgba(148,178,255,.22);border-radius:8px;padding:6px 12px;cursor:pointer', head);
+    var timeEl = el('div', 'flex:none;font:500 11.5px ui-monospace,Menlo,Consolas,monospace;color:' + C.mut, head);
+    var cancelBtn = el('button', 'flex:none;font:600 10.5px ui-monospace,Menlo,Consolas,monospace;color:' + C.fg + ';background:' + C.track
+      + ';border:2px solid ' + C.border + ';padding:6px 10px;cursor:pointer;letter-spacing:.08em;text-transform:uppercase', head);
     cancelBtn.textContent = 'Cancel';
-    cancelBtn.onclick = function () { cancelled = true; cancelBtn.textContent = 'Cancelling…'; };
-    var track = el('div', 'height:6px;border-radius:999px;background:' + C.track + ';overflow:hidden;margin-top:12px', panel);
-    var barEl = el('div', 'height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,'
-      + C.accent + ',' + C.accent2 + ');box-shadow:0 0 12px rgba(69,214,255,.5);transition:width .3s ease', track);
+    cancelBtn.onclick = function () { cancelled = true; cancelBtn.textContent = 'Stopping…'; };
+    var track = el('div', 'height:10px;background:' + C.track + ';border:2px solid ' + C.border + ';overflow:hidden;margin-top:12px', panel);
+    var barEl = el('div', 'height:100%;width:0%;background:' + C.accent + ';transition:width .3s ease', track);
     var meta = el('div', 'display:flex;justify-content:space-between;gap:10px;margin-top:8px', panel);
     var countEl = el('div', 'font:500 11.5px ui-monospace,Menlo,Consolas,monospace;color:' + C.mut, meta);
-    el('div', 'font:500 11.5px ui-monospace,Menlo,Consolas,monospace;color:' + C.mut, meta)
-      .textContent = 'runs locally';
+    el('div', 'font:500 11px ui-monospace,Menlo,Consolas,monospace;color:' + C.mut + ';letter-spacing:.06em', meta)
+      .textContent = 'RUNS LOCALLY';
 
     var tick = setInterval(function () { timeEl.textContent = fmtTime(Date.now() - startedAt); }, 1000);
     requestAnimationFrame(function () { panel.style.opacity = '1'; });
@@ -86,11 +87,13 @@
       },
       success: function (text) {
         statusEl.textContent = text;
+        statusEl.style.color = C.green;
         cancelBtn.style.display = 'none';
         finishPanel(0, true);
       },
       fail: function (text) {
         statusEl.textContent = text;
+        statusEl.style.color = C.accent;
         cancelBtn.style.display = 'none';
         finishPanel(0, true);
       },
@@ -317,10 +320,10 @@
     var want = Boolean(id) && !running;
     if (want && !btn) {
       btn = el('button', 'position:fixed;bottom:20px;right:20px;z-index:2147483646;display:flex;align-items:center;gap:8px;'
-        + 'background:' + C.bg + ';color:' + C.fg + ';border:1px solid rgba(62,213,163,.5);'
-        + 'border-radius:12px;padding:10px 16px;font:600 13px system-ui,sans-serif;cursor:pointer;'
-        + 'box-shadow:0 10px 30px rgba(0,0,0,.45)', document.body);
-      btn.innerHTML = '<span style="width:10px;height:10px;border-radius:3px;background:' + C.accent + '"></span>'
+        + 'background:' + C.accent + ';color:' + C.fg + ';border:2px solid ' + C.border + ';'
+        + 'padding:10px 16px;font:600 12px ui-monospace,Menlo,Consolas,monospace;cursor:pointer;letter-spacing:.06em;text-transform:uppercase;'
+        + 'box-shadow:4px 4px 0 ' + C.border, document.body);
+      btn.innerHTML = '<span style="width:10px;height:10px;background:' + C.fg + '"></span>'
         + 'Save as PDF';
       btn.onclick = function () {
         if (hasImages(document)) {

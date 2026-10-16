@@ -7,6 +7,7 @@ import {
   IconPaste,
 } from './Glyphs.jsx'
 import { detect, directDownloadUrl } from '../lib/link.js'
+import Ticker from './Ticker.jsx'
 import bookmarkletSrc from '../capture/bookmarklet.min.js?raw'
 
 // The bookmarklet link is set imperatively so React never sees a
@@ -106,15 +107,19 @@ export default function StaticApp() {
           <span className="brand-name">GDrive Down</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v2.0</span>
+          <span className="topbar-version">v3.0</span>
         </div>
       </header>
 
+      <Ticker />
+
       <section className="hero reveal reveal-1">
-        <h1>Paste a link. Get the file.</h1>
+        <h1>
+          Paste a link. <span className="r">Get the file.</span>
+        </h1>
         <p>
-          Public files download straight from Google. For view-only files, one bookmark
-          captures the pages and saves a PDF, right in this browser.
+          Public files download straight from Google. View-only files are captured page by
+          page and rebuilt as one PDF, right in this browser.
         </p>
       </section>
 

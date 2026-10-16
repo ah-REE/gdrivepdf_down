@@ -16,9 +16,10 @@
   var tickTimer = null;
 
   var C = {
-    fg: '#e9eefb', sub: '#a8b4cf', mut: '#7d8aab',
-    bg: 'rgba(10,15,26,.9)', border: 'rgba(94,190,255,.3)',
-    track: 'rgba(120,150,220,.18)', accent: '#45d6ff', accent2: '#8b7cff'
+    fg: '#121212', sub: '#46433c', mut: '#6b665c',
+    bg: '#f4f1ea', border: '#121212',
+    track: '#fffefb', accent: '#ff2d20', accent2: '#ff2d20',
+    green: '#0c7a42'
   };
 
   function el(tag, css, parent) {
@@ -31,7 +32,7 @@
   function logo(size) {
     var s = '<svg width="' + size + '" height="' + size + '" viewBox="0 0 32 32" style="display:block">'
       + '<rect width="32" height="32" rx="9" fill="' + C.accent + '"/>'
-      + '<path d="M16 7v12m0 0l-5-5m5 5l5-5M9.5 25h13" stroke="#041018" stroke-width="2.6" '
+      + '<path d="M16 7v12m0 0l-5-5m5 5l5-5M9.5 25h13" stroke="#121212" stroke-width="2.6" '
       + 'stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
     var d = document.createElement('div');
     d.style.cssText = 'flex:none;display:flex';
@@ -48,34 +49,33 @@
   function buildHeader(parent) {
     var head = el('div', 'display:flex;align-items:center;gap:10px', parent);
     head.appendChild(logo(22));
-    el('div', 'font:600 14px/1.2 system-ui,sans-serif;color:' + C.fg + ';flex:none', head)
-      .textContent = 'GDrive Down';
-    statusEl = el('div', 'flex:1;min-width:0;font:500 12.5px/1.4 system-ui,sans-serif;color:' + C.sub
+    el('div', 'font:700 13px/1.2 ui-monospace,Menlo,Consolas,monospace;color:' + C.fg + ';flex:none;letter-spacing:.08em', head)
+      .textContent = 'GDRIVE_DOWN';
+    statusEl = el('div', 'flex:1;min-width:0;font:500 11.5px/1.4 ui-monospace,Menlo,Consolas,monospace;color:' + C.sub
       + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis', head);
-    timeEl = el('div', 'flex:none;font:500 12px ui-monospace,Menlo,Consolas,monospace;color:' + C.mut, head);
-    cancelBtn = el('button', 'flex:none;font:600 12px system-ui,sans-serif;color:#cfd6e2;background:transparent;'
-      + 'border:1px solid rgba(148,178,255,.22);border-radius:8px;padding:6px 12px;cursor:pointer', head);
+    timeEl = el('div', 'flex:none;font:500 11.5px ui-monospace,Menlo,Consolas,monospace;color:' + C.mut, head);
+    cancelBtn = el('button', 'flex:none;font:600 10.5px ui-monospace,Menlo,Consolas,monospace;color:' + C.fg + ';background:' + C.track
+      + ';border:2px solid ' + C.border + ';padding:6px 10px;cursor:pointer;letter-spacing:.08em;text-transform:uppercase', head);
     cancelBtn.textContent = 'Cancel';
-    cancelBtn.onclick = function () { cancelled = true; cancelBtn.textContent = 'Cancelling…'; };
+    cancelBtn.onclick = function () { cancelled = true; cancelBtn.textContent = 'Stopping…'; };
   }
 
   function buildProgress(parent) {
-    var track = el('div', 'height:6px;border-radius:999px;background:' + C.track
-      + ';overflow:hidden;margin-top:12px', parent);
-    barEl = el('div', 'height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,'
-      + C.accent + ',' + C.accent2 + ');box-shadow:0 0 12px rgba(69,214,255,.5);transition:width .3s ease', track);
+    var track = el('div', 'height:10px;background:' + C.track
+      + ';border:2px solid ' + C.border + ';overflow:hidden;margin-top:12px', parent);
+    barEl = el('div', 'height:100%;width:0%;background:' + C.accent + ';transition:width .3s ease', track);
     var meta = el('div', 'display:flex;justify-content:space-between;gap:10px;margin-top:8px', parent);
-    countEl = el('div', 'font:500 11.5px ui-monospace,Menlo,Consolas,monospace;color:' + C.mut, meta);
-    el('div', 'font:500 11.5px ui-monospace,Menlo,Consolas,monospace;color:' + C.mut, meta)
-      .textContent = 'runs locally · click Cancel to stop';
+    countEl = el('div', 'font:500 11px ui-monospace,Menlo,Consolas,monospace;color:' + C.mut, meta);
+    el('div', 'font:500 11px ui-monospace,Menlo,Consolas,monospace;color:' + C.mut + ';letter-spacing:.06em', meta)
+      .textContent = 'RUNS LOCALLY · CLICK CANCEL TO STOP';
   }
 
   /* Corner panel: used when the preview is already on screen. */
   function buildCornerPanel() {
-    panel = el('div', 'position:fixed;top:16px;right:16px;z-index:2147483647;width:340px;max-width:calc(100vw - 32px);'
-      + 'background:' + C.bg + ';border:1px solid ' + C.border + ';border-radius:14px;padding:14px 16px;'
-      + 'box-shadow:0 24px 60px rgba(0,0,0,.6),0 0 0 1px rgba(69,214,255,.08);backdrop-filter:blur(14px) saturate(1.2);'
-      + '-webkit-backdrop-filter:blur(14px) saturate(1.2);opacity:0;transition:opacity .25s ease', document.body);
+    panel = el('div', 'position:fixed;top:16px;right:16px;z-index:2147483647;width:360px;max-width:calc(100vw - 32px);'
+      + 'background:' + C.bg + ';border:2px solid ' + C.border + ';padding:14px 16px;'
+      + 'box-shadow:8px 8px 0 rgba(18,18,18,.85);font-family:ui-monospace,Menlo,Consolas,monospace;'
+      + 'opacity:0;transition:opacity .25s ease', document.body);
     panel.id = 'gdd-panel';
     buildHeader(panel);
     buildProgress(panel);
@@ -84,19 +84,17 @@
 
   /* Overlay: preview loads inline in a same-origin frame. */
   function buildOverlay(previewUrl) {
-    overlay = el('div', 'position:fixed;inset:0;z-index:2147483647;background:rgba(6,8,12,.94);'
+    overlay = el('div', 'position:fixed;inset:0;z-index:2147483647;background:rgba(244,241,234,.97);'
       + 'display:flex;flex-direction:column;align-items:center;padding:18px;gap:12px;'
       + 'opacity:0;transition:opacity .25s ease', document.body);
     overlay.id = 'gdd-overlay';
-    panel = el('div', 'width:min(1100px,100%);flex:none;background:' + C.bg + ';border:1px solid ' + C.border
-      + ';border-radius:14px;padding:14px 16px;box-shadow:0 24px 60px rgba(0,0,0,.6);backdrop-filter:blur(14px) saturate(1.2);'
-      + '-webkit-backdrop-filter:blur(14px) saturate(1.2)', overlay);
+    panel = el('div', 'width:min(1100px,100%);flex:none;background:' + C.bg + ';border:2px solid ' + C.border
+      + ';padding:14px 16px;box-shadow:8px 8px 0 rgba(18,18,18,.85);font-family:ui-monospace,Menlo,Consolas,monospace', overlay);
     panel.id = 'gdd-panel';
     buildHeader(panel);
     buildProgress(panel);
     var wrap = el('div', 'width:min(1100px,100%);flex:1;min-height:0', overlay);
-    iframeEl = el('iframe', 'width:100%;height:100%;border:1px solid ' + C.border
-      + ';border-radius:12px;background:#fff', wrap);
+    iframeEl = el('iframe', 'width:100%;height:100%;border:2px solid ' + C.border + ';background:#fff', wrap);
     iframeEl.setAttribute('allow', 'clipboard-read');
     iframeEl.src = previewUrl;
     requestAnimationFrame(function () { overlay.style.opacity = '1'; });
@@ -134,6 +132,7 @@
       return;
     }
     setStatus('Stopped: ' + msg);
+    if (statusEl) statusEl.style.color = C.accent;
     if (cancelBtn) cancelBtn.style.display = 'none';
     cleanup(0, true);
   }
@@ -311,6 +310,7 @@
     a.remove();
     setProgress(total, total);
     setStatus('Saved ' + pdfName() + ' · ' + total + ' pages');
+    if (statusEl) statusEl.style.color = C.green;
     if (cancelBtn) cancelBtn.style.display = 'none';
     cleanup(0, true);
   }

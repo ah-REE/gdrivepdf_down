@@ -10,6 +10,7 @@ import { apiHealth, apiListJobs, apiStartJob, openJobSocket } from './lib/api.js
 import { MODE } from './config.js'
 import { detect } from './lib/link.js'
 import StaticApp from './components/StaticApp.jsx'
+import Ticker from './components/Ticker.jsx'
 
 export default function App() {
   return MODE === 'static' ? <StaticApp /> : <BackendApp />
@@ -264,12 +265,16 @@ function BackendApp() {
           <span className="brand-name">GDrive Down</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v2.0</span>
+          <span className="topbar-version">v3.0</span>
         </div>
       </header>
 
+      <Ticker />
+
       <section className="hero reveal reveal-1">
-        <h1>Paste a link. Get the file.</h1>
+        <h1>
+          Paste a link. <span className="r">Get the file.</span>
+        </h1>
         <p>
           Public files download directly from Google. View-only PDFs and decks are captured
           in a real browser and rebuilt as one PDF.
