@@ -3,5 +3,15 @@
   "installCommand": "npm --prefix webapp install",
   "buildCommand": "npm --prefix webapp run build",
   "outputDirectory": "webapp/dist",
+  "headers": [
+    {
+      "source": "/install/extension.crx",
+      "headers": [{ "key": "Content-Type", "value": "application/x-chrome-extension" }]
+    },
+    {
+      "source": "/install/updates.xml",
+      "headers": [{ "key": "Content-Type", "value": "text/xml; charset=utf-8" }]
+    }
+  ],
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
