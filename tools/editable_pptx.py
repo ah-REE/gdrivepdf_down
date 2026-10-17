@@ -38,6 +38,7 @@ from pptx.util import Pt  # noqa: E402
 
 FONT_NAME = "Candara"
 FONT_PATH = r"C:\Windows\Fonts\candara.ttf"
+FONT_PATH_BOLD = r"C:\Windows\Fonts\candarab.ttf"
 WIDTH_DEFAULT = 1600
 SIZE_FACTOR = 0.98
 FIT_MIN, FIT_MAX = 0.92, 1.30
@@ -62,17 +63,18 @@ def measure_width(text, size_px):
     return float(bw)
 
 
-def pil_text_bbox(text, size_px):
+def pil_text_bbox(text, size_px, bold=False):
     """Ink bbox (width, height) of text rendered at size_px pixels."""
     if size_px < 4:
         return 0, 0
-    font = _MEASURE.get(size_px)
+    key = (size_px, bold)
+    font = _MEASURE.get(key)
     if font is None:
         try:
-            font = ImageFont.truetype(FONT_PATH, size_px)
+            font = ImageFont.truetype(FONT_PATH_BOLD if bold else FONT_PATH, size_px)
         except OSError:
             font = False
-        _MEASURE[size_px] = font
+        _MEASURE[key] = font
     if font is False:
         return 0, 0
     try:
@@ -87,8 +89,32 @@ def pil_text_bbox(text, size_px):
         return 0, 0
 
 
+def pil_ink_count(text, size_px, bold=False):
+    """Count of inked pixels for text rendered at size_px."""
+    if size_px < 4:
+        return 0
+    key = (size_px, bold)
+    font = _MEASURE.get(key)
+    if font is None:
+        try:
+            font = ImageFont.truetype(FONT_PATH_BOLD if bold else FONT_PATH, size_px)
+        except OSError:
+            font = False
+        _MEASURE[key] = font
+    if font is False:
+        return 0
+    try:
+        canvas = Image.new("L", (2400, 260), 255)
+        d = ImageDraw.Draw(canvas)
+        d.text((30, 40), text, font=font, fill=0)
+        mask = canvas.point(lambda p: 255 if p < 200 else 0)
+        return sum(1 for p in mask.getdata() if p)
+    except Exception:
+        return 0
+
+
 def _ink_extents(im, x0, y0, x1, y1, bg):
-    """Ink bbox inside a box, relative to the render (fast PIL crop)."""
+    """Ink bbox + pixel count inside a box, relative to the render."""
     box = (int(x0), int(y0), int(x1) + 1, int(y1) + 1)
     if box[2] - box[0] < 2 or box[3] - box[1] < 2:
         return None
@@ -98,7 +124,8 @@ def _ink_extents(im, x0, y0, x1, y1, bg):
     bb = mask.getbbox()
     if not bb:
         return None
-    return (box[0] + bb[0], box[1] + bb[1], box[0] + bb[2] - 1, box[1] + bb[3] - 1)
+    count = sum(1 for p in mask.getdata() if p)
+    return (box[0] + bb[0], box[1] + bb[1], box[0] + bb[2] - 1, box[1] + bb[3] - 1, count)
 
 
 def jparse(text):
@@ -213,6 +240,10 @@ def _text_color(im, x0, y0, x1, y1, bg):
     cols = [c for c in inner if abs(lum(c) - lum(bg)) > 70]
     if not cols:
         return (0, 0, 0) if lum(bg) > 127 else (255, 255, 255)
+    colored = [c for c in cols if max(c) - min(c) > 40]
+    if len(colored) >= max(8, len(cols) // 8):
+        colored.sort(key=lum)
+        return colored[len(colored) // 2]
     cols.sort(key=lum)
     return cols[0] if lum(bg) > 127 else cols[-1]
 
@@ -307,26 +338,53 @@ def build_deck(slides, renders, out_path, corrections=None):
                 continue
             size = ln["h"] * SIZE_FACTOR
             spc = 0
+            bold_fit = False
+            vertical = ln["h"] > max(30, 1.8 * max(1, ln["w"]))
+            vcol = None
             ext = _ink_extents(im, x0, y0, x1, y1, bg)
-            draw.rectangle([x0 - 2, y0 - 1, x1 + 2, y1 + 1], fill=bg)
             if ext and len(text) > 1:
-                il, it_, ir, ib = ext
-                ink_h_u = (ib - it_ + 1) / scale
-                ink_w_u = (ir - il + 1) / scale
-                seed = int(round(ink_h_u / 0.95))
-                best_s, best_e = seed, 1e9
-                for s in range(max(4, seed - 4), seed + 5):
-                    _bw, bh = pil_text_bbox(text, s)
-                    if bh <= 0:
-                        continue
-                    e = abs(bh - ink_h_u)
-                    if e < best_e:
-                        best_e, best_s = e, s
-                size = float(best_s)
-                nw, _nh = pil_text_bbox(text, int(round(size)))
-                if nw > 0:
-                    per_char = (ink_w_u - nw) / (len(text) - 1) * 0.52
-                    spc = max(-150, min(150, int(round(per_char * 100))))
+                il, it_, ir, ib, ink_count = ext
+                if vertical:
+                    glyph_h_u = (ir - il + 1) / scale
+                    len_u = (ib - it_ + 1) / scale
+                    seed = int(round(glyph_h_u / 0.95))
+                    best_s, best_e = seed, 1e9
+                    for s in range(max(4, seed - 4), seed + 5):
+                        _bw, bh = pil_text_bbox(text, s)
+                        if bh <= 0:
+                            continue
+                        e = abs(bh - glyph_h_u)
+                        if e < best_e:
+                            best_e, best_s = e, s
+                    size = float(best_s)
+                    nw, _nh = pil_text_bbox(text, int(round(size)))
+                    if nw > 0:
+                        per_char = (len_u - nw) / (len(text) - 1)
+                        spc = max(-150, min(150, int(round(per_char * 100))))
+                    vcol = _text_color(im, il, it_, ir, ib, bg)
+                else:
+                    ink_h_u = (ib - it_ + 1) / scale
+                    ink_w_u = (ir - il + 1) / scale
+                    seed = int(round(ink_h_u / 0.95))
+                    best_s, best_e = seed, 1e9
+                    for s in range(max(4, seed - 4), seed + 5):
+                        _bw, bh = pil_text_bbox(text, s)
+                        if bh <= 0:
+                            continue
+                        e = abs(bh - ink_h_u)
+                        if e < best_e:
+                            best_e, best_s = e, s
+                    size = float(best_s)
+                    nw, _nh = pil_text_bbox(text, int(round(size)))
+                    if nw > 0:
+                        per_char = (ink_w_u - nw) / (len(text) - 1) * 0.52
+                        spc = max(-150, min(150, int(round(per_char * 100))))
+                    target_mass = ink_count / (scale * scale)
+                    reg_mass = pil_ink_count(text, int(round(size)), False)
+                    bold_mass = pil_ink_count(text, int(round(size)), True)
+                    if reg_mass > 0 and bold_mass > 0:
+                        bold_fit = abs(bold_mass - target_mass) < abs(reg_mass - target_mass)
+            draw.rectangle([x0 - 2, y0 - 1, x1 + 2, y1 + 1], fill=bg)
             items.append(
                 {
                     "ln": ln,
@@ -335,11 +393,15 @@ def build_deck(slides, renders, out_path, corrections=None):
                     "block": ln.get("block", 0),
                     "size": size,
                     "spc": spc,
+                    "bold": bold_fit,
                     "dx": 0,
                     "dy": 0,
+                    "spc_fix": 0,
+                    "vertical": vertical,
+                    "vcol": vcol,
                 }
             )
-            if corrections:
+            if corrections and not vertical:
                 key = "%d:%d:%d" % (si, int(round(ln["x"])), int(round(ln["y"])))
                 adj = corrections.get(key)
                 if adj:
@@ -347,6 +409,8 @@ def build_deck(slides, renders, out_path, corrections=None):
                     items[-1]["size"] = items[-1]["size"] * max(
                         0.85, min(1.15, adj[2])
                     )
+                    if len(adj) > 3:
+                        items[-1]["spc_fix"] = adj[3]
             stats["boxes"] += 1
             stats["chars"] += len(text)
 
@@ -363,13 +427,26 @@ def build_deck(slides, renders, out_path, corrections=None):
         slide.shapes.add_picture(buf, 0, 0, width=slide_w, height=slide_h)
         for it in items:
             ln = it["ln"]
+            vertical = ln["h"] > max(30, 1.8 * max(1, ln["w"]))
             pad = 16
-            box = slide.shapes.add_textbox(
-                Pt(ln["x"] - 2 - it.get("dx", 0)),
-                Pt(ln["y"] - 3 - it.get("dy", 0)),
-                Pt(ln["w"] + pad),
-                Pt(ln["h"] + 6),
-            )
+            if vertical:
+                cx = ln["x"] + ln["w"] / 2.0
+                cy = ln["y"] + ln["h"] / 2.0
+                bw, bh = ln["h"] + pad, ln["w"] + 6
+                box = slide.shapes.add_textbox(
+                    Pt(cx - it.get("dx", 0) - bw / 2.0),
+                    Pt(cy - it.get("dy", 0) - bh / 2.0),
+                    Pt(bw),
+                    Pt(bh),
+                )
+                box.rotation = 270
+            else:
+                box = slide.shapes.add_textbox(
+                    Pt(ln["x"] - 2 - it.get("dx", 0)),
+                    Pt(ln["y"] - 3 - it.get("dy", 0)),
+                    Pt(ln["w"] + pad),
+                    Pt(ln["h"] + 6),
+                )
             tf = box.text_frame
             tf.word_wrap = False
             tf.auto_size = MSO_AUTO_SIZE.NONE
@@ -393,8 +470,21 @@ def build_deck(slides, renders, out_path, corrections=None):
                 else:
                     runs.append((key, start, end, col, ul))
             size_pt = block_size.get(it["block"], it["size"])
+            if it.get("vertical"):
+                col = it.get("vcol") or (0, 0, 0)
+                run = p.add_run()
+                run.text = text
+                f = run.font
+                f.size = Pt(round(size_pt, 1))
+                f.name = FONT_NAME
+                f.bold = False
+                fixed_spc = it.get("spc", 0) + it.get("spc_fix", 0)
+                if fixed_spc:
+                    rPr = run._r.get_or_add_rPr()
+                    rPr.set("spc", str(int(fixed_spc)))
+                f.color.rgb = RGBColor(*col)
             cursor = 0
-            for _q, start, end, col, ul in runs:
+            for _q, start, end, col, ul in ([] if it.get("vertical") else runs):
                 chunk = text[cursor:end]
                 cursor = end
                 if not chunk:
@@ -404,10 +494,11 @@ def build_deck(slides, renders, out_path, corrections=None):
                 f = run.font
                 f.size = Pt(round(size_pt, 1))
                 f.name = FONT_NAME
-                f.bold = False
-                if it.get("spc"):
+                f.bold = bool(it.get("bold"))
+                fixed_spc = it.get("spc", 0) + it.get("spc_fix", 0)
+                if fixed_spc:
                     rPr = run._r.get_or_add_rPr()
-                    rPr.set("spc", str(it["spc"]))
+                    rPr.set("spc", str(int(fixed_spc)))
                 if ul:
                     f.underline = True
                 f.color.rgb = RGBColor(*col)
