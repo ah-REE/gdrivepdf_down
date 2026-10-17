@@ -10,6 +10,11 @@ Strategies (mode=auto tries in order):
             larger files.
   export  - native Google formats (Docs -> PDF, Slides -> PPTX/PDF,
             Sheets -> XLSX) via docs.google.com export endpoints.
+  viewer  - Google's own preview pipeline, server-side and browser-free:
+            the preview page mints a one-scope token, viewer/upload
+            returns signed URLs, then either the original bytes ('pdf'
+            key) or Google-rendered page images (up to 3200px) are
+            fetched. The page route covers view-only files.
   capture - view-only / download-disabled PDFs: starts a tiny local HTTP
             receiver; you paste a generated console script into the browser
             tab that shows the Drive preview; the script sends each rendered
@@ -411,7 +416,275 @@ def strategy_export(session, kind, file_id, dest_dir, name_hint=None, verbose=Fa
 
 
 # --------------------------------------------------------------------------
-# Strategy C: assisted capture for view-only / download-disabled PDFs
+# Strategy C: viewer pipeline (Google's own preview renderer, server-side)
+# --------------------------------------------------------------------------
+
+def _viewer_base():
+    return os.environ.get("GDD_VIEWER_BASE", "https://drive.google.com").rstrip("/")
+
+
+def _rand_fssid():
+    import random
+    alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+    return "1" + "".join(random.choice(alphabet) for _ in range(28))
+
+
+def _jparse_goog(text):
+    """Strip Google's XSSI guard and parse the JSON body."""
+    if text.startswith(")]}'"):
+        text = text.split("\n", 1)[1]
+    return json.loads(text)
+
+
+def viewer_bootstrap(session, file_id, verbose=False):
+    """Bootstrap the Drive viewer session for a file id.
+
+    Returns (cfg, preview_url, fssid). cfg keys: pdf (signed original
+    bytes URL), meta, page, presspage, ...  Raises RuntimeError(reason).
+    """
+    base = _viewer_base()
+    prev = "%s/file/d/%s/preview" % (base, file_id)
+    r = session.get(prev, timeout=(15, 60))
+    if r.status_code != 200:
+        raise RuntimeError("viewer-preview-http-%d" % r.status_code)
+    m = re.search(r"viewer/upload\?ds\\u003d([A-Za-z0-9_%.-]+)", r.text)
+    if not m:
+        m = re.search(r"viewer/upload\?ds=([A-Za-z0-9_%.-]+)", r.text)
+    if not m:
+        raise RuntimeError("viewer-no-token")
+    ds = m.group(1)
+    fssid = _rand_fssid()
+    url = ("%s/viewer/upload?ds=%s&ck=drive&dsmi=texmex&p=proj&fssid=%s"
+           % (base, ds, fssid))
+    u = session.get(url, headers={"Referer": base + "/"}, timeout=(15, 60))
+    if u.status_code != 200:
+        raise RuntimeError("viewer-upload-http-%d" % u.status_code)
+    cfg = _jparse_goog(u.text)
+    if verbose:
+        print("  viewer bootstrap keys: %s" % ", ".join(sorted(cfg)))
+    return cfg, prev, fssid
+
+
+def _sniff_bytes(data):
+    """Return (family, ext) for an in-memory blob."""
+    if data.startswith(b"%PDF-"):
+        return "pdf", "pdf"
+    if data.startswith(b"PK\x03\x04"):
+        try:
+            with zipfile.ZipFile(io.BytesIO(data)) as z:
+                names = set(z.namelist())
+            if any(n.startswith("ppt/") for n in names):
+                return "pptx", "pptx"
+            if any(n.startswith("word/") for n in names):
+                return "docx", "docx"
+            if any(n.startswith("xl/") for n in names):
+                return "xlsx", "xlsx"
+            return "zip", "zip"
+        except zipfile.BadZipFile:
+            return "zip", "zip"
+    return "bin", "bin"
+
+
+def _ensure_extension(path, ext):
+    if path.lower().endswith("." + ext.lower()):
+        return path
+    root, cur = os.path.splitext(path)
+    if cur.lower() in ("", ".bin", ".download", ".tmp"):
+        return unique_path(path + "." + ext)
+    return unique_path(root + "." + ext)
+
+
+def _write_viewer_page(tmp_dir, n, raw):
+    """Persist one rendered page, normalising WEBP/odd PNG modes."""
+    if raw[:2] == b"\xff\xd8":
+        ext, data = "jpg", raw
+    elif raw[:4] == b"\x89PNG":
+        ext, data = "png", raw
+        if Image is not None:
+            try:
+                im = Image.open(io.BytesIO(raw))
+                if im.mode not in ("RGB", "L"):
+                    buf = io.BytesIO()
+                    im.convert("RGB").save(buf, "PNG")
+                    data = buf.getvalue()
+            except Exception:
+                pass
+    else:
+        if Image is None:
+            raise RuntimeError("Pillow is required to convert viewer page images.")
+        im = Image.open(io.BytesIO(raw))
+        im.load()
+        buf = io.BytesIO()
+        im.convert("RGB").save(buf, "JPEG", quality=92)
+        ext, data = "jpg", buf.getvalue()
+    path = os.path.join(tmp_dir, "page_%05d.%s" % (n, ext))
+    with open(path, "wb") as f:
+        f.write(data)
+    return path
+
+
+def _stitch_image_files(paths, out_path):
+    try:
+        import img2pdf
+        data = img2pdf.convert(paths)
+        with open(out_path, "wb") as f:
+            f.write(data)
+        return len(paths)
+    except ImportError:
+        pass
+    except Exception:
+        pass
+    if Image is None:
+        raise RuntimeError("Pillow or img2pdf is required to stitch pages.")
+    images = []
+    for p in paths:
+        im = Image.open(p)
+        im.load()
+        images.append(im.convert("RGB"))
+    images[0].save(out_path, "PDF", save_all=True, append_images=images[1:],
+                   resolution=192.0, quality=92)
+    return len(images)
+
+
+def strategy_viewer(session, file_id, dest_dir, name_hint=None, verbose=False,
+                    progress_cb=None):
+    """Fetch through Drive's own viewer endpoints, server-side (no browser).
+
+    Preferred: the viewer's signed 'pdf' URL yields the original bytes.
+    Download-restricted shares: Google-rendered page images (up to
+    GDD_VIEWER_WIDTH px, default 3200) are stitched into a PDF.
+    """
+    session = session or new_session()
+    base = _viewer_base()
+    try:
+        cfg, prev, fssid = viewer_bootstrap(session, file_id, verbose)
+    except RuntimeError as e:
+        return ("fail", str(e))
+    except requests.RequestException:
+        return ("fail", "network-error")
+
+    # --- 1) original bytes via the viewer's signed URL ---
+    pdf_url = cfg.get("pdf")
+    if pdf_url and not os.environ.get("GDD_VIEWER_PAGES_ONLY"):
+        try:
+            r = session.get(pdf_url, stream=True, timeout=(15, 180))
+        except requests.RequestException:
+            r = None
+        if r is not None and r.status_code == 200:
+            total = r.headers.get("Content-Length")
+            total = int(total) if total and total.isdigit() else None
+            if total is not None and total > (400 << 20):
+                r.close()
+                return ("fail", "viewer-file-too-large")
+            buf = io.BytesIO()
+            head = b""
+            try:
+                for chunk in r.iter_content(chunk_size=(1 << 20)):
+                    if not chunk:
+                        continue
+                    if not head:
+                        head = chunk[:256]
+                    buf.write(chunk)
+                    if progress_cb:
+                        progress_cb(buf.tell(), total)
+            except requests.RequestException:
+                head = b""
+            finally:
+                r.close()
+            data = buf.getvalue()
+            low = head.lstrip().lower()
+            if data and not low.startswith((b"<", b"{")):
+                family, ext = _sniff_bytes(data)
+                if family != "bin":
+                    fname = name_hint or (title_from_view_page(new_session(),
+                                                               file_id) or file_id)
+                    dest = unique_path(os.path.join(
+                        dest_dir, sanitize_filename(fname)))
+                    with open(dest, "wb") as f:
+                        f.write(data)
+                    dest = _ensure_extension(dest, ext)
+                    return ("ok", dest)
+
+    # --- 2) Google-rendered page images ---
+    page_tpl = cfg.get("page")
+    if not page_tpl:
+        return ("fail", "viewer-no-pages")
+    pages = None
+    if cfg.get("meta"):
+        try:
+            mr = session.get(base + "/viewer/" + cfg["meta"],
+                             headers={"Referer": prev}, timeout=(15, 60))
+            if mr.status_code == 200:
+                pages = _jparse_goog(mr.text).get("pages")
+        except (requests.RequestException, ValueError):
+            pass
+    width = int(os.environ.get("GDD_VIEWER_WIDTH", "3200") or 3200)
+    max_pages = int(os.environ.get("GDD_VIEWER_MAX_PAGES", "0") or 0)
+    page_base = base + "/viewer/" + page_tpl
+    fname = name_hint or (title_from_view_page(new_session(), file_id) or file_id)
+    stem = sanitize_filename(fname)
+    if stem.lower().endswith(".pdf"):
+        stem = stem[:-4]
+    out_path = unique_path(os.path.join(dest_dir, stem + ".pdf"))
+    tmp_dir = tempfile.mkdtemp(prefix="gdd_viewer_")
+    page_files = []
+    missing = []
+    n = 1
+    while True:
+        if pages and n > pages:
+            break
+        if max_pages and len(page_files) >= max_pages:
+            break
+        if n > 5000:
+            break
+        url = ("%s&auditContext=forDisplay&page=%d&w=%d&webp=true&fssid=%s"
+               % (page_base, n, width, fssid))
+        raw = None
+        for _attempt in range(3):
+            try:
+                ir = session.get(url, headers={"Referer": prev},
+                                 timeout=(15, 120))
+            except requests.RequestException:
+                time.sleep(0.4)
+                continue
+            if ir.status_code == 200 and len(ir.content) > 200:
+                raw = ir.content
+            break
+        if raw is None:
+            if pages:
+                missing.append(n)
+                n += 1
+                continue
+            break
+        try:
+            page_files.append(_write_viewer_page(tmp_dir, n, raw))
+        except Exception as e:
+            return ("fail", "viewer-page-%d: %s" % (n, e))
+        if progress_cb:
+            progress_cb(len(page_files), pages)
+        if verbose or (pages and n % 10 == 0):
+            sys.stdout.write("\r  page %d/%s" % (n, pages or "?"))
+            sys.stdout.flush()
+        n += 1
+    if verbose or (pages and n > 1):
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    if not page_files:
+        return ("fail", "viewer-no-pages-fetched")
+    try:
+        count = _stitch_image_files(page_files, out_path)
+    except Exception as e:
+        return ("fail", "viewer-stitch: %s" % e)
+    if missing:
+        print("  [viewer] warning: %d page(s) unavailable: %s"
+              % (len(missing), ", ".join(str(x) for x in missing[:12])))
+    if pages and count < pages:
+        print("  [viewer] %d of %d pages written." % (count, pages))
+    return ("ok", out_path)
+
+
+# --------------------------------------------------------------------------
+# Strategy D: assisted capture for view-only / download-disabled PDFs
 # --------------------------------------------------------------------------
 
 class CaptureState:
@@ -774,7 +1047,11 @@ def report_result(path):
 REASON_HINTS = {
     "auth-required": "This file is not public: Google redirected to a sign-in page. Only link-viewable files work here (capture mode also needs the file to open in your signed-in browser).",
     "needs-access": "The file is private. Share it as 'Anyone with the link -> Viewer' and retry, or use capture mode (the file must at least be viewable).",
-    "download-blocked": "The owner disabled downloads. Capture mode can rebuild a PDF from the browser preview.",
+    "download-blocked": "The owner disabled downloads. The viewer pipeline rebuilds the file from Google's own page renders; capture mode is the last resort.",
+    "viewer-no-token": "This file has no Drive preview bootstrap — it may not be previewable or may need sign-in.",
+    "viewer-no-pages": "The viewer exposed neither the original file nor page renders for this link.",
+    "viewer-preview-http-403": "Google refused the preview request — the file is likely not link-viewable.",
+    "viewer-upload-http-400": "The viewer session was rejected — usually a non-previewable file.",
     "not-found": "The link is wrong or the file was deleted.",
     "quota": "Google temporarily limited this file's traffic. Try again later.",
     "export-blocked": "Export is blocked for this account/file.",
@@ -797,7 +1074,7 @@ def process_link(link, out_dir=".", name=None, mode="auto", port=8931,
 
     reason = None
     if mode in ("auto", "direct"):
-        print("[1/3] Direct download...")
+        print("[1/4] Direct download...")
         status, payload = strategy_direct(None, file_id, out_dir, name, verbose)
         if status == "ok":
             report_result(payload)
@@ -807,7 +1084,7 @@ def process_link(link, out_dir=".", name=None, mode="auto", port=8931,
 
     if mode in ("auto", "export"):
         if kind in EXPORT_FORMATS:
-            print("[2/3] Native export (docs.google.com)...")
+            print("[2/4] Native export (docs.google.com)...")
             status, payload = strategy_export(new_session(), kind, file_id,
                                               out_dir, name, verbose)
             if status == "ok":
@@ -816,10 +1093,19 @@ def process_link(link, out_dir=".", name=None, mode="auto", port=8931,
             reason = payload
             print("  export failed: %s" % payload)
         else:
-            print("[2/3] Native export skipped (not a docs.google.com native type).")
+            print("[2/4] Native export skipped (not a docs.google.com native type).")
+
+    if mode in ("auto", "viewer"):
+        print("[3/4] Viewer pipeline (Google's own preview endpoints)...")
+        status, payload = strategy_viewer(None, file_id, out_dir, name, verbose)
+        if status == "ok":
+            report_result(payload)
+            return 0
+        reason = payload
+        print("  viewer failed: %s" % payload)
 
     if mode in ("auto", "capture"):
-        print("[3/3] Assisted browser capture...")
+        print("[4/4] Assisted browser capture...")
         status, payload = run_capture(new_session(), file_id, out_dir, name,
                                       port, keep_images, verbose)
         if status == "ok":
@@ -980,12 +1266,102 @@ def _self_test():
             server.shutdown()
             server.server_close()
 
+    def t_viewer():
+        """Viewer pipeline against a local mock of Google's endpoints."""
+        from http.server import BaseHTTPRequestHandler
+
+        if Image is None:
+            raise AssertionError("Pillow not installed")
+        TOKEN = "ACFrOgTESTTOKENabc123"
+
+        def png(color):
+            buf = io.BytesIO()
+            Image.new("RGB", (80, 100), color).save(buf, "PNG")
+            return buf.getvalue()
+
+        class MockHandler(BaseHTTPRequestHandler):
+            def _send(self, code, body, ctype="text/html; charset=utf-8"):
+                self.send_response(code)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_GET(self):
+                port = self.server.server_address[1]
+                path = self.path
+                if "/file/d/" in path and path.endswith("/preview"):
+                    body = ('<html><script>var u="http://127.0.0.1:%d/viewer/'
+                            'upload?ds\\u003d%s&ck=drive";</script></html>'
+                            % (port, TOKEN)).encode()
+                    self._send(200, body)
+                elif path.startswith("/viewer/upload"):
+                    body = (')]}\'\n{"meta":"meta?id=%s&dsmi=texmex",'
+                            '"page":"img?id=%s&dsmi=texmex"%s}'
+                            % (TOKEN, TOKEN,
+                               ',"pdf":"http://127.0.0.1:%d/file.bin"' % port
+                               if self.server.include_pdf else ""))
+                    self._send(200, body.encode(), "application/json")
+                elif path.startswith("/viewer/meta"):
+                    self._send(200, b')]}\'\n{"pages":3,"maxPageWidth":3200}',
+                               "application/json")
+                elif path.startswith("/viewer/img"):
+                    m = re.search(r"page=(\d+)", path)
+                    n = int(m.group(1)) if m else 0
+                    colors = {1: (250, 10, 10), 2: (10, 250, 10),
+                              3: (10, 10, 250)}
+                    if n in colors:
+                        self._send(200, png(colors[n]), "image/png")
+                    else:
+                        self._send(404, b"no")
+                elif path.startswith("/file.bin"):
+                    self._send(200, b"%PDF-1.4\n1 0 obj\n<</Type/Page>>\n"
+                               b"endobj\ntrailer\n<</Root 1 0 R>>\n%%EOF\n",
+                               "application/pdf")
+                else:
+                    self._send(404, b"nope")
+
+            def log_message(self, *a):
+                pass
+
+        httpd = ThreadingHTTPServer(("127.0.0.1", 0), MockHandler)
+        httpd.include_pdf = True
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        port = httpd.server_address[1]
+        old_base = os.environ.get("GDD_VIEWER_BASE")
+        os.environ["GDD_VIEWER_BASE"] = "http://127.0.0.1:%d" % port
+        try:
+            with tempfile.TemporaryDirectory(prefix="gdrive_down_viewer_") as tmp:
+                st, payload = strategy_viewer(new_session(), "aB3xY9qLm2VtR7sK1pZ0wQ5nD",
+                                              tmp, "orig.pdf")
+                assert st == "ok", (st, payload)
+                with open(payload, "rb") as f:
+                    data = f.read()
+                assert data.startswith(b"%PDF-1.4"), data[:16]
+                httpd.include_pdf = False
+                st, payload = strategy_viewer(new_session(), "aB3xY9qLm2VtR7sK1pZ0wQ5nD",
+                                              tmp, "pages")
+                assert st == "ok", (st, payload)
+                with open(payload, "rb") as f:
+                    data = f.read()
+                assert data.startswith(b"%PDF"), data[:16]
+                pages = len(re.findall(rb"/Type\s*/Page\b", data))
+                assert pages == 3, "expected 3 pages, found %d" % pages
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
+            if old_base is None:
+                os.environ.pop("GDD_VIEWER_BASE", None)
+            else:
+                os.environ["GDD_VIEWER_BASE"] = old_base
+
     print("Running self-test...")
     check("link parsing (10 shapes)", t_parse)
     check("magic-byte type sniffing", t_magic)
     check("virus-scan interstitial parsing", t_interstitial)
     check("blocked-page classification", t_classify)
     check("capture server + stitch pipeline", t_capture)
+    check("viewer pipeline (mock endpoints)", t_viewer)
     if failures:
         print("SELF-TEST FAILED: %s" % ", ".join(failures))
         return 1
@@ -1001,12 +1377,13 @@ def main(argv=None):
     ap = argparse.ArgumentParser(
         prog="gdrive_down",
         description="Download PDF/PPT/PPTX files from a Google Drive link, "
-                    "including view-only PDFs via assisted browser capture.",
+                    "through Google's own viewer endpoints (including "
+                    "view-only files) or assisted browser capture.",
     )
     ap.add_argument("link", nargs="?", help="Google Drive file link or file id")
     ap.add_argument("-o", "--out", default=".", help="output directory (default: current)")
     ap.add_argument("-n", "--name", default=None, help="output file name")
-    ap.add_argument("--mode", choices=["auto", "direct", "export", "capture"],
+    ap.add_argument("--mode", choices=["auto", "direct", "export", "viewer", "capture"],
                     default="auto", help="download strategy (default: auto)")
     ap.add_argument("--port", type=int, default=8931,
                     help="local capture receiver port (default: 8931)")

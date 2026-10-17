@@ -68,17 +68,23 @@ python gdrive_down.py "https://drive.google.com/file/d/FILE_ID/view?usp=sharing"
 python gdrive_down.py
 ```
 
-Options: `-o OUT`, `-n NAME`, `--mode auto|direct|export|capture`,
+Options: `-o OUT`, `-n NAME`, `--mode auto|direct|export|viewer|capture`,
 `--port N`, `--keep-images`, `-v`, `--self-test`.
 
 ## How it works
 
-1. Direct download: the browser performs a native download from Google's
+1. Viewer pipeline: talks to the same internal endpoints the Drive preview
+   itself uses (preview page -> `viewer/upload` -> signed URLs). When the
+   share allows it, the original file comes down byte-for-byte; otherwise
+   Google's own page renders (up to 3200 px wide) are stitched into a PDF.
+   It runs server-side - no browser, no scrolling - and covers view-only
+   links.
+2. Direct download: the browser performs a native download from Google's
    download endpoint, so no cross-origin restrictions apply.
-2. Capture bookmark: reads the rendered page images from the Drive preview,
+3. Capture bookmark: reads the rendered page images from the Drive preview,
    builds a PDF locally (a tiny JPEG-in-PDF writer) and saves it. No network
    calls leave your browser.
-3. Local app: automates the same capture with Playwright, handles large decks
+4. Local app: automates the same capture with Playwright, handles large decks
    in memory-safe batches, and stitches pages with a lossless PDF writer.
 
 ## Optional backend
