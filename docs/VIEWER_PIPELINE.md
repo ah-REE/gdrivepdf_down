@@ -71,10 +71,11 @@ with per-run boxes `[y, x, height, width]` on a 960x540 point canvas.
 3. masks the baked-in text on the render (median ring colour) and keeps the
    artwork as the slide background,
 4. lays real text boxes on top:
-   - font is **Segoe UI** (picked by measuring every installed font against
-     the deck's real line boxes; metric ratio 1.001 vs Calibri 1.064)
+   - font is **Candara** (chosen by scoring installed fonts pixel-by-pixel
+     against real line crops; Candara won over Segoe UI/Calibri/Trebuchet)
    - word joining is token-based with punctuation rules (no glued words)
-   - font size fitted to the measured line width, word wrap off
+   - per-line font size matched to the render's measured ink height
+   - per-line tracking (`spc`) calibrated so ink width matches the render
    - colours sampled per word, so mixed-colour paragraphs survive
    - underlines detected from render pixels per word (not guessed from
      colour/length)

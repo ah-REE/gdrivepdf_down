@@ -36,8 +36,8 @@ from pptx.dml.color import RGBColor  # noqa: E402
 from pptx.enum.text import MSO_ANCHOR, MSO_AUTO_SIZE, PP_ALIGN  # noqa: E402
 from pptx.util import Pt  # noqa: E402
 
-FONT_NAME = "Segoe UI"
-FONT_PATH = r"C:\Windows\Fonts\segoeui.ttf"
+FONT_NAME = "Candara"
+FONT_PATH = r"C:\Windows\Fonts\candara.ttf"
 WIDTH_DEFAULT = 1600
 SIZE_FACTOR = 0.98
 FIT_MIN, FIT_MAX = 0.92, 1.30
@@ -58,8 +58,14 @@ def clean(text):
 
 
 def measure_width(text, size_px):
+    bw, _bh = pil_text_bbox(text, size_px)
+    return float(bw)
+
+
+def pil_text_bbox(text, size_px):
+    """Ink bbox (width, height) of text rendered at size_px pixels."""
     if size_px < 4:
-        return 0.0
+        return 0, 0
     font = _MEASURE.get(size_px)
     if font is None:
         try:
@@ -68,11 +74,31 @@ def measure_width(text, size_px):
             font = False
         _MEASURE[size_px] = font
     if font is False:
-        return 0.0
+        return 0, 0
     try:
-        return float(font.getlength(text))
+        canvas = Image.new("L", (2400, 260), 255)
+        d = ImageDraw.Draw(canvas)
+        d.text((30, 40), text, font=font, fill=0)
+        bb = canvas.point(lambda p: 255 if p < 200 else 0).getbbox()
+        if not bb:
+            return 0, 0
+        return bb[2] - bb[0], bb[3] - bb[1]
     except Exception:
-        return 0.0
+        return 0, 0
+
+
+def _ink_extents(im, x0, y0, x1, y1, bg):
+    """Ink bbox inside a box, relative to the render (fast PIL crop)."""
+    box = (int(x0), int(y0), int(x1) + 1, int(y1) + 1)
+    if box[2] - box[0] < 2 or box[3] - box[1] < 2:
+        return None
+    crop = im.crop(box).convert("L")
+    bl = lum(bg)
+    mask = crop.point(lambda p: 255 if abs(p - bl) > 80 else 0)
+    bb = mask.getbbox()
+    if not bb:
+        return None
+    return (box[0] + bb[0], box[1] + bb[1], box[0] + bb[2] - 1, box[1] + bb[3] - 1)
 
 
 def jparse(text):
@@ -279,14 +305,28 @@ def build_deck(slides, renders, out_path):
             if len(text) < 2:
                 stats["skipped"] += 1
                 continue
+            size = ln["h"] * SIZE_FACTOR
+            spc = 0
+            ext = _ink_extents(im, x0, y0, x1, y1, bg)
             draw.rectangle([x0 - 2, y0 - 1, x1 + 2, y1 + 1], fill=bg)
-            base = ln["h"] * SIZE_FACTOR
-            size = base
-            if len(text) > TINY_TEXT and ln["w"] > 4:
-                measured = measure_width(text, int(round(base)))
-                if measured > 0:
-                    size = base * max(0.92, min(1.30, ln["w"] / measured))
-            distribute = False
+            if ext and len(text) > 1:
+                il, it_, ir, ib = ext
+                ink_h_u = (ib - it_ + 1) / scale
+                ink_w_u = (ir - il + 1) / scale
+                seed = int(round(ink_h_u / 0.95))
+                best_s, best_e = seed, 1e9
+                for s in range(max(4, seed - 4), seed + 5):
+                    _bw, bh = pil_text_bbox(text, s)
+                    if bh <= 0:
+                        continue
+                    e = abs(bh - ink_h_u)
+                    if e < best_e:
+                        best_e, best_s = e, s
+                size = float(best_s)
+                nw, _nh = pil_text_bbox(text, int(round(size)))
+                if nw > 0:
+                    per_char = (ink_w_u - nw) / (len(text) - 1) * 0.52
+                    spc = max(-150, min(150, int(round(per_char * 100))))
             items.append(
                 {
                     "ln": ln,
@@ -294,7 +334,7 @@ def build_deck(slides, renders, out_path):
                     "spans": spans,
                     "block": ln.get("block", 0),
                     "size": size,
-                    "distribute": distribute,
+                    "spc": spc,
                 }
             )
             stats["boxes"] += 1
@@ -352,6 +392,9 @@ def build_deck(slides, renders, out_path):
                 f.size = Pt(round(size_pt, 1))
                 f.name = FONT_NAME
                 f.bold = False
+                if it.get("spc"):
+                    rPr = run._r.get_or_add_rPr()
+                    rPr.set("spc", str(it["spc"]))
                 if ul:
                     f.underline = True
                 f.color.rgb = RGBColor(*col)
