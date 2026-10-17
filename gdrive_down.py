@@ -444,7 +444,17 @@ def viewer_bootstrap(session, file_id, verbose=False):
     """
     base = _viewer_base()
     prev = "%s/file/d/%s/preview" % (base, file_id)
-    r = session.get(prev, timeout=(15, 60))
+    r = None
+    for attempt in range(3):
+        try:
+            r = session.get(prev, timeout=(15, 60))
+        except requests.RequestException:
+            r = None
+        if r is not None and r.status_code == 200:
+            break
+        time.sleep(0.8 + 0.7 * attempt)
+    if r is None:
+        raise RuntimeError("network-error")
     if r.status_code != 200:
         raise RuntimeError("viewer-preview-http-%d" % r.status_code)
     m = re.search(r"viewer/upload\?ds\\u003d([A-Za-z0-9_%.-]+)", r.text)
@@ -546,8 +556,36 @@ def _stitch_image_files(paths, out_path):
     return len(images)
 
 
+def build_pptx_from_images(paths, out_path, slide_width_in=13.333):
+    """Rebuild a .pptx deck from page/slide renders (one full-bleed image
+    per slide). Used for view-only decks where Google withholds the
+    original bytes."""
+    try:
+        from pptx import Presentation
+        from pptx.util import Inches
+    except ImportError:
+        raise RuntimeError("python-pptx is required to rebuild a pptx "
+                           "(pip install python-pptx)")
+    prs = Presentation()
+    width = Inches(slide_width_in)
+    height = int(width * 9 / 16)
+    if Image is not None:
+        with Image.open(paths[0]) as im:
+            w_px, h_px = im.size
+        if w_px and h_px:
+            height = int(width * h_px / w_px)
+    prs.slide_width = width
+    prs.slide_height = height
+    blank = prs.slide_layouts[6]
+    for p in paths:
+        slide = prs.slides.add_slide(blank)
+        slide.shapes.add_picture(p, 0, 0, width=width, height=height)
+    prs.save(out_path)
+    return len(paths)
+
+
 def strategy_viewer(session, file_id, dest_dir, name_hint=None, verbose=False,
-                    progress_cb=None):
+                    progress_cb=None, build_pptx=False):
     """Fetch through Drive's own viewer endpoints, server-side (no browser).
 
     Preferred: the viewer's signed 'pdf' URL yields the original bytes.
@@ -623,50 +661,54 @@ def strategy_viewer(session, file_id, dest_dir, name_hint=None, verbose=False,
     page_base = base + "/viewer/" + page_tpl
     fname = name_hint or (title_from_view_page(new_session(), file_id) or file_id)
     stem = sanitize_filename(fname)
-    if stem.lower().endswith(".pdf"):
-        stem = stem[:-4]
+    for ext in (".pdf", ".pptx", ".ppt", ".pptm"):
+        if stem.lower().endswith(ext):
+            stem = stem[: -len(ext)]
+            break
     out_path = unique_path(os.path.join(dest_dir, stem + ".pdf"))
     tmp_dir = tempfile.mkdtemp(prefix="gdd_viewer_")
     page_files = []
     missing = []
-    n = 1
+    idx = 0
     while True:
-        if pages and n > pages:
+        if pages and idx >= pages:
             break
         if max_pages and len(page_files) >= max_pages:
             break
-        if n > 5000:
+        if idx > 5000:
             break
         url = ("%s&auditContext=forDisplay&page=%d&w=%d&webp=true&fssid=%s"
-               % (page_base, n, width, fssid))
+               % (page_base, idx, width, fssid))
         raw = None
-        for _attempt in range(3):
+        for attempt in range(5):
             try:
                 ir = session.get(url, headers={"Referer": prev},
                                  timeout=(15, 120))
             except requests.RequestException:
-                time.sleep(0.4)
+                time.sleep(0.4 + 0.3 * attempt)
                 continue
             if ir.status_code == 200 and len(ir.content) > 200:
                 raw = ir.content
-            break
+                break
+            time.sleep(0.3 + 0.35 * attempt)
         if raw is None:
             if pages:
-                missing.append(n)
-                n += 1
+                missing.append(idx + 1)
+                idx += 1
                 continue
             break
         try:
-            page_files.append(_write_viewer_page(tmp_dir, n, raw))
+            page_files.append(_write_viewer_page(tmp_dir, idx + 1, raw))
         except Exception as e:
-            return ("fail", "viewer-page-%d: %s" % (n, e))
+            return ("fail", "viewer-page-%d: %s" % (idx + 1, e))
         if progress_cb:
             progress_cb(len(page_files), pages)
-        if verbose or (pages and n % 10 == 0):
-            sys.stdout.write("\r  page %d/%s" % (n, pages or "?"))
+        if verbose or (pages and (idx + 1) % 10 == 0):
+            sys.stdout.write("\r  page %d/%s" % (idx + 1, pages or "?"))
             sys.stdout.flush()
-        n += 1
-    if verbose or (pages and n > 1):
+        time.sleep(0.08)
+        idx += 1
+    if verbose or (pages and idx > 0):
         sys.stdout.write("\n")
         sys.stdout.flush()
     if not page_files:
@@ -680,7 +722,17 @@ def strategy_viewer(session, file_id, dest_dir, name_hint=None, verbose=False,
               % (len(missing), ", ".join(str(x) for x in missing[:12])))
     if pages and count < pages:
         print("  [viewer] %d of %d pages written." % (count, pages))
-    return ("ok", out_path)
+    result_path = out_path
+    if build_pptx:
+        pptx_path = unique_path(os.path.splitext(out_path)[0] + ".pptx")
+        try:
+            build_pptx_from_images(page_files, pptx_path)
+            print("  [viewer] pptx rebuilt from renders: %s"
+                  % os.path.abspath(pptx_path))
+            result_path = pptx_path
+        except Exception as e:
+            print("  [viewer] pptx rebuild failed: %s" % e)
+    return ("ok", result_path)
 
 
 # --------------------------------------------------------------------------
@@ -1061,7 +1113,7 @@ REASON_HINTS = {
 
 
 def process_link(link, out_dir=".", name=None, mode="auto", port=8931,
-                 keep_images=False, verbose=False):
+                 keep_images=False, verbose=False, pptx=False):
     os.makedirs(out_dir, exist_ok=True)
     if is_folder_link(link):
         print("[!] Folder links are not supported — paste a single file link.")
@@ -1097,7 +1149,8 @@ def process_link(link, out_dir=".", name=None, mode="auto", port=8931,
 
     if mode in ("auto", "viewer"):
         print("[3/4] Viewer pipeline (Google's own preview endpoints)...")
-        status, payload = strategy_viewer(None, file_id, out_dir, name, verbose)
+        status, payload = strategy_viewer(None, file_id, out_dir, name, verbose,
+                                          build_pptx=pptx)
         if status == "ok":
             report_result(payload)
             return 0
@@ -1308,8 +1361,8 @@ def _self_test():
                 elif path.startswith("/viewer/img"):
                     m = re.search(r"page=(\d+)", path)
                     n = int(m.group(1)) if m else 0
-                    colors = {1: (250, 10, 10), 2: (10, 250, 10),
-                              3: (10, 10, 250)}
+                    colors = {0: (250, 10, 10), 1: (10, 250, 10),
+                              2: (10, 10, 250)}
                     if n in colors:
                         self._send(200, png(colors[n]), "image/png")
                     else:
@@ -1355,6 +1408,27 @@ def _self_test():
             else:
                 os.environ["GDD_VIEWER_BASE"] = old_base
 
+    def t_pptx():
+        try:
+            import pptx  # noqa: F401
+        except ImportError:
+            print("  [skip] python-pptx not installed")
+            return
+        if Image is None:
+            raise AssertionError("Pillow not installed")
+        with tempfile.TemporaryDirectory(prefix="gdrive_down_pptx_") as tmp:
+            paths = []
+            for i, color in enumerate([(200, 30, 30), (30, 200, 30)]):
+                p = os.path.join(tmp, "s%d.png" % i)
+                Image.new("RGB", (160, 90), color).save(p, "PNG")
+                paths.append(p)
+            out = os.path.join(tmp, "deck.pptx")
+            n = build_pptx_from_images(paths, out)
+            assert n == 2
+            from pptx import Presentation
+            prs = Presentation(out)
+            assert len(prs.slides) == 2, len(prs.slides)
+
     print("Running self-test...")
     check("link parsing (10 shapes)", t_parse)
     check("magic-byte type sniffing", t_magic)
@@ -1362,6 +1436,7 @@ def _self_test():
     check("blocked-page classification", t_classify)
     check("capture server + stitch pipeline", t_capture)
     check("viewer pipeline (mock endpoints)", t_viewer)
+    check("pptx rebuild (renders -> deck)", t_pptx)
     if failures:
         print("SELF-TEST FAILED: %s" % ", ".join(failures))
         return 1
@@ -1389,6 +1464,9 @@ def main(argv=None):
                     help="local capture receiver port (default: 8931)")
     ap.add_argument("--keep-images", action="store_true",
                     help="keep captured page images next to the PDF")
+    ap.add_argument("--pptx", action="store_true",
+                    help="rebuild a .pptx from page renders when the original "
+                         "bytes are withheld (view-only decks)")
     ap.add_argument("-v", "--verbose", action="store_true")
     ap.add_argument("--self-test", action="store_true",
                     help="run built-in self-tests and exit")
@@ -1408,6 +1486,7 @@ def main(argv=None):
         port=args.port,
         keep_images=args.keep_images,
         verbose=args.verbose,
+        pptx=args.pptx,
     )
 
 

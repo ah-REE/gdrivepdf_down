@@ -20,7 +20,8 @@ gets bytes without a browser, without cookies, and without logging in.
    shares): loop
    `GET https://drive.google.com/viewer/img?id=<doc-token>&dsmi=texmex&auditContext=forDisplay&page=N&w=3200&webp=true&fssid=<session-id>`
    and stitch the returned pages with img2pdf (Pillow fallback). Pages come
-   back as PNG or WEBP at up to 3200 px wide.
+   back as PNG or WEBP at up to 3200 px wide. **`page` is 0-based**: `page=0`
+   is the first slide, valid values are `0..pages-1`.
 
 ## Verified live (2026-10-17)
 
@@ -54,11 +55,15 @@ All requests were plain `requests` calls with no cookies, no login, no browser.
 | `GDD_VIEWER_MAX_PAGES=N` | stop after N pages (sampling/tests) |
 | `GDD_VIEWER_BASE` | override the base host (used by the self-test mocks) |
 
+`--pptx` rebuilds a .pptx deck from the page renders (one full-bleed image
+per slide) when the original bytes are withheld. The rebuilt deck opens in
+PowerPoint/Keynote/LibreOffice but the slides are images, not editable text.
+
 ## Try it
 
 ```text
 python gdrive_down.py --mode viewer "https://drive.google.com/file/d/FILE_ID/view"
-python gdrive_down.py --mode viewer -o out "https://drive.google.com/file/d/FILE_ID/view"
+python gdrive_down.py --mode viewer --pptx -o out "https://docs.google.com/presentation/d/DECK_ID/edit"
 GDD_VIEWER_PAGES_ONLY=1 GDD_VIEWER_MAX_PAGES=5 python gdrive_down.py --mode viewer LINK
 ```
 

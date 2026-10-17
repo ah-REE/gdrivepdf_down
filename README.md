@@ -69,7 +69,7 @@ python gdrive_down.py
 ```
 
 Options: `-o OUT`, `-n NAME`, `--mode auto|direct|export|viewer|capture`,
-`--port N`, `--keep-images`, `-v`, `--self-test`.
+`--pptx`, `--port N`, `--keep-images`, `-v`, `--self-test`.
 
 ## How it works
 
