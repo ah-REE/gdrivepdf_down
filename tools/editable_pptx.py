@@ -341,6 +341,9 @@ def build_deck(slides, renders, out_path, corrections=None):
             bold_fit = False
             vertical = ln["h"] > max(30, 1.8 * max(1, ln["w"]))
             vcol = None
+            ink_w_store = 0.0
+            nat_w_store = 0.0
+            distribute = False
             ext = _ink_extents(im, x0, y0, x1, y1, bg)
             if ext and len(text) > 1:
                 il, it_, ir, ib, ink_count = ext
@@ -360,7 +363,7 @@ def build_deck(slides, renders, out_path, corrections=None):
                     nw, _nh = pil_text_bbox(text, int(round(size)))
                     if nw > 0:
                         per_char = (len_u - nw) / (len(text) - 1)
-                        spc = max(-150, min(150, int(round(per_char * 100))))
+                        spc = max(-1500, min(1500, int(round(per_char * 100))))
                     vcol = _text_color(im, il, it_, ir, ib, bg)
                 else:
                     ink_h_u = (ib - it_ + 1) / scale
@@ -377,8 +380,10 @@ def build_deck(slides, renders, out_path, corrections=None):
                     size = float(best_s)
                     nw, _nh = pil_text_bbox(text, int(round(size)))
                     if nw > 0:
-                        per_char = (ink_w_u - nw) / (len(text) - 1) * 0.52
-                        spc = max(-150, min(150, int(round(per_char * 100))))
+                        per_char = (ink_w_u - nw) / (len(text) - 1)
+                        spc = max(-1500, min(1500, int(round(per_char * 100))))
+                    ink_w_store = ink_w_u
+                    nat_w_store = nw
                     target_mass = ink_count / (scale * scale)
                     reg_mass = pil_ink_count(text, int(round(size)), False)
                     bold_mass = pil_ink_count(text, int(round(size)), True)
@@ -399,6 +404,9 @@ def build_deck(slides, renders, out_path, corrections=None):
                     "spc_fix": 0,
                     "vertical": vertical,
                     "vcol": vcol,
+                    "ink_w": ink_w_store,
+                    "nat_w": nat_w_store,
+                    "distribute": distribute,
                 }
             )
             if corrections and not vertical:
@@ -428,7 +436,7 @@ def build_deck(slides, renders, out_path, corrections=None):
         for it in items:
             ln = it["ln"]
             vertical = ln["h"] > max(30, 1.8 * max(1, ln["w"]))
-            pad = 16
+            pad = 2 if it.get("distribute") else 16
             if vertical:
                 cx = ln["x"] + ln["w"] / 2.0
                 cy = ln["y"] + ln["h"] / 2.0
@@ -495,7 +503,7 @@ def build_deck(slides, renders, out_path, corrections=None):
                 f.size = Pt(round(size_pt, 1))
                 f.name = FONT_NAME
                 f.bold = bool(it.get("bold"))
-                fixed_spc = it.get("spc", 0) + it.get("spc_fix", 0)
+                fixed_spc = it.get("spc", 0)
                 if fixed_spc:
                     rPr = run._r.get_or_add_rPr()
                     rPr.set("spc", str(int(fixed_spc)))
