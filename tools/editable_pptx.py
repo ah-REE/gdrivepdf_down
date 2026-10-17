@@ -263,13 +263,13 @@ def _join_line(words):
     return text, spans
 
 
-def build_deck(slides, renders, out_path):
+def build_deck(slides, renders, out_path, corrections=None):
     prs = Presentation()
     slide_w, slide_h = Pt(960), Pt(540)
     prs.slide_width, prs.slide_height = slide_w, slide_h
     blank = prs.slide_layouts[6]
     stats = {"boxes": 0, "chars": 0, "skipped": 0, "formula": 0, "underlined": 0}
-    for lines, blob in zip(slides, renders):
+    for si, (lines, blob) in enumerate(zip(slides, renders)):
         im = Image.open(io.BytesIO(blob)).convert("RGB")
         scale = im.width / 960.0
         draw = ImageDraw.Draw(im)
@@ -335,8 +335,18 @@ def build_deck(slides, renders, out_path):
                     "block": ln.get("block", 0),
                     "size": size,
                     "spc": spc,
+                    "dx": 0,
+                    "dy": 0,
                 }
             )
+            if corrections:
+                key = "%d:%d:%d" % (si, int(round(ln["x"])), int(round(ln["y"])))
+                adj = corrections.get(key)
+                if adj:
+                    items[-1]["dx"], items[-1]["dy"] = adj[0], adj[1]
+                    items[-1]["size"] = items[-1]["size"] * max(
+                        0.85, min(1.15, adj[2])
+                    )
             stats["boxes"] += 1
             stats["chars"] += len(text)
 
@@ -355,7 +365,10 @@ def build_deck(slides, renders, out_path):
             ln = it["ln"]
             pad = 16
             box = slide.shapes.add_textbox(
-                Pt(ln["x"] - 2), Pt(ln["y"] - 3), Pt(ln["w"] + pad), Pt(ln["h"] + 6)
+                Pt(ln["x"] - 2 - it.get("dx", 0)),
+                Pt(ln["y"] - 3 - it.get("dy", 0)),
+                Pt(ln["w"] + pad),
+                Pt(ln["h"] + 6),
             )
             tf = box.text_frame
             tf.word_wrap = False
