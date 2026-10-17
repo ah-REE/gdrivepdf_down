@@ -30,16 +30,40 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import gdrive_down as gd  # noqa: E402
 
-from PIL import Image, ImageDraw  # noqa: E402
+from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 from pptx import Presentation  # noqa: E402
 from pptx.dml.color import RGBColor  # noqa: E402
-from pptx.enum.text import MSO_ANCHOR  # noqa: E402
+from pptx.enum.text import MSO_ANCHOR, MSO_AUTO_SIZE  # noqa: E402
 from pptx.util import Pt  # noqa: E402
 
 FONT_NAME = "Calibri"
+FONT_PATH = r"C:\Windows\Fonts\calibri.ttf"
 WIDTH_DEFAULT = 1600
 SIZE_FACTOR = 0.92
 BOLD_HEIGHT = 18
+FORMULA_RE = re.compile(r"[=≈≠≤≥∑∫√±×÷]")
+NO_SPACE_BEFORE = set("),.;:!?%”’")
+NO_SPACE_AFTER = set("(«“‘")
+_MEASURE = {}
+
+
+def measure_width(text, size_px):
+    """Text width in px (≈pt) at the given size; 0.0 when unmeasurable."""
+    if size_px < 4:
+        return 0.0
+    font = _MEASURE.get(size_px)
+    if font is None:
+        try:
+            font = ImageFont.truetype(FONT_PATH, size_px)
+        except OSError:
+            font = False
+        _MEASURE[size_px] = font
+    if font is False:
+        return 0.0
+    try:
+        return float(font.getlength(text))
+    except Exception:
+        return 0.0
 
 
 def lum(c):
@@ -94,7 +118,15 @@ def lines_of(runs):
         for p in parts:
             if prev is not None:
                 gap = p["x"] - (prev["x"] + prev["w"])
-                if gap > max(1.2, p["h"] * 0.11) and not text.endswith(" "):
+                piece = p["t"]
+                if (
+                    gap >= -2
+                    and piece
+                    and text
+                    and piece[0] not in NO_SPACE_BEFORE
+                    and text[-1] not in NO_SPACE_AFTER
+                    and not text.endswith(" ")
+                ):
                     text += " "
             text += p["t"]
             prev = p
@@ -118,9 +150,67 @@ def fetch_slide_text(session, cfg, prev, page):
     )
     if r.status_code != 200:
         return []
-    runs = []
-    collect_runs(jparse(r.text), runs)
-    return lines_of(runs)
+    return structured_lines(jparse(r.text))
+
+
+def structured_lines(payload):
+    """Walk the block hierarchy so separate text columns never merge."""
+    blocks = payload[3] if isinstance(payload, list) and len(payload) >= 4 else []
+    out = []
+    for blk in blocks:
+        if not (isinstance(blk, list) and len(blk) >= 2):
+            continue
+        for ln in blk[1]:
+            if not (
+                isinstance(ln, list)
+                and len(ln) == 2
+                and isinstance(ln[0], list)
+                and len(ln[0]) == 4
+                and isinstance(ln[1], list)
+            ):
+                continue
+            words = []
+            for w in ln[1]:
+                if (
+                    isinstance(w, list)
+                    and len(w) == 2
+                    and isinstance(w[0], list)
+                    and len(w[0]) == 4
+                    and isinstance(w[1], str)
+                ):
+                    y, x, h, wd = w[0]
+                    words.append({"x": x, "y": y, "w": wd, "h": h, "t": w[1]})
+            if not words:
+                continue
+            words.sort(key=lambda r: r["x"])
+            text = ""
+            prev = None
+            for p in words:
+                if prev is not None:
+                    gap = p["x"] - (prev["x"] + prev["w"])
+                    piece = p["t"]
+                    if (
+                        gap >= -2
+                        and piece
+                        and text
+                        and piece[0] not in NO_SPACE_BEFORE
+                        and text[-1] not in NO_SPACE_AFTER
+                        and not text.endswith(" ")
+                    ):
+                        text += " "
+                text += p["t"]
+                prev = p
+            out.append(
+                {
+                    "x": min(p["x"] for p in words),
+                    "y": min(p["y"] for p in words),
+                    "w": max(p["x"] + p["w"] for p in words)
+                    - min(p["x"] for p in words),
+                    "h": max(p["h"] for p in words),
+                    "text": text,
+                }
+            )
+    return out
 
 
 def fetch_render(session, cfg, prev, page, width, fssid):
@@ -144,7 +234,7 @@ def build_deck(slides, renders, out_path):
     slide_w, slide_h = Pt(960), Pt(540)
     prs.slide_width, prs.slide_height = slide_w, slide_h
     blank = prs.slide_layouts[6]
-    stats = {"boxes": 0, "chars": 0, "skipped": 0}
+    stats = {"boxes": 0, "chars": 0, "skipped": 0, "formula": 0}
     for i, (lines, blob) in enumerate(zip(slides, renders)):
         im = Image.open(io.BytesIO(blob)).convert("RGB")
         scale = im.width / 960.0
@@ -154,6 +244,9 @@ def build_deck(slides, renders, out_path):
             text = clean(ln["text"])
             if len(text) < 2 or not any(ch.isalnum() for ch in text):
                 stats["skipped"] += 1
+                continue
+            if FORMULA_RE.search(text):
+                stats["formula"] += 1
                 continue
             x0 = min(max(0.0, ln["x"] * scale), im.width - 1.0)
             y0 = min(max(0.0, ln["y"] * scale), im.height - 1.0)
@@ -199,7 +292,8 @@ def build_deck(slides, renders, out_path):
                 Pt(ln["x"] - 2), Pt(ln["y"] - 3), Pt(ln["w"] + 16), Pt(ln["h"] + 6)
             )
             tf = box.text_frame
-            tf.word_wrap = True
+            tf.word_wrap = False
+            tf.auto_size = MSO_AUTO_SIZE.NONE
             tf.margin_left = 0
             tf.margin_right = 0
             tf.margin_top = 0
@@ -208,9 +302,16 @@ def build_deck(slides, renders, out_path):
             run = tf.paragraphs[0].add_run()
             run.text = text
             f = run.font
-            f.size = Pt(round(ln["h"] * SIZE_FACTOR, 1))
+            size_pt = ln["h"] * SIZE_FACTOR
+            measured = measure_width(text, int(round(size_pt)))
+            if measured > 0 and ln["w"] > 4:
+                size_pt *= max(0.6, min(1.6, ln["w"] / measured))
+            f.size = Pt(round(size_pt, 1))
             f.name = FONT_NAME
-            f.bold = ln["h"] >= BOLD_HEIGHT
+            f.bold = False
+            r, g, b = tcol
+            if len(text) <= 40 and b - r > 55:
+                f.underline = True
             f.color.rgb = RGBColor(*tcol)
     prs.save(str(out_path))
     return stats

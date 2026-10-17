@@ -66,12 +66,17 @@ with per-run boxes `[y, x, height, width]` on a 960x540 point canvas.
 `tools/editable_pptx.py` turns that into an editable deck:
 
 1. fetches every slide render (default 1600 px wide),
-2. fetches the text layer per slide and rebuilds lines with gap-based word
-   joining,
+2. fetches the text layer and walks Google's own block -> line -> word
+   hierarchy, so separate columns never merge,
 3. masks the baked-in text on the render (median ring colour) and keeps the
    artwork as the slide background,
-4. lays real text boxes on top - position, size and colour sampled from the
-   render; Calibri, bold when the line is tall.
+4. lays real text boxes on top: punctuation-aware word joining, font size
+   fitted to the measured line width (Calibri metrics), word wrap off,
+   colours sampled per line, blue headings underlined.
+
+Lines containing `=` or math operators are left baked into the background,
+so formulas and super/subscripts stay pixel-exact instead of being
+flattened into plain text.
 
 Each slide ends up with one background picture plus N editable text boxes.
 Text is fully editable; the artwork is not. Verified against PowerPoint
