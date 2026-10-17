@@ -70,9 +70,14 @@ with per-run boxes `[y, x, height, width]` on a 960x540 point canvas.
    hierarchy, so separate columns never merge,
 3. masks the baked-in text on the render (median ring colour) and keeps the
    artwork as the slide background,
-4. lays real text boxes on top: punctuation-aware word joining, font size
-   fitted to the measured line width (Calibri metrics), word wrap off,
-   colours sampled per line, blue headings underlined.
+4. lays real text boxes on top:
+   - font is **Segoe UI** (picked by measuring every installed font against
+     the deck's real line boxes; metric ratio 1.001 vs Calibri 1.064)
+   - word joining is token-based with punctuation rules (no glued words)
+   - font size fitted to the measured line width, word wrap off
+   - colours sampled per word, so mixed-colour paragraphs survive
+   - underlines detected from render pixels per word (not guessed from
+     colour/length)
 
 Lines containing `=` or math operators are left baked into the background,
 so formulas and super/subscripts stay pixel-exact instead of being
