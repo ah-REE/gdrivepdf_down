@@ -87,6 +87,10 @@ Options: `-o OUT`, `-n NAME`, `--mode auto|direct|export|viewer|capture`,
 4. Local app: automates the same capture with Playwright, handles large decks
    in memory-safe batches, and stitches pages with a lossless PDF writer.
 
+For view-only decks, `tools/editable_pptx.py` rebuilds an editable .pptx:
+slide artwork stays as the background, and real text boxes (positions, sizes
+and colours recovered from Google's own text layer) go on top.
+
 ## Optional backend
 
 The repository also includes a FastAPI backend (`server.py`) with a Docker
@@ -99,8 +103,9 @@ Its API is documented at the top of `server.py`.
 ```text
 capture/              The capture bookmarklet (source and minified build)
 extension/            Browser extension: fully automatic capture, no bookmarks needed
-gdrive_down.py        CLI downloader (direct, export and capture strategies)
+gdrive_down.py        CLI downloader (direct, export, viewer and capture strategies)
 server.py             Optional FastAPI backend (jobs, WebSocket, capture)
+tools/editable_pptx.py  Rebuild a view-only deck as an editable .pptx
 webapp/               React UI (Vite). dist/ is committed for local use without Node
 tests/                End-to-end checks (python tests/test_e2e.py)
 vercel.json           Static deployment config for Vercel

@@ -59,6 +59,29 @@ All requests were plain `requests` calls with no cookies, no login, no browser.
 per slide) when the original bytes are withheld. The rebuilt deck opens in
 PowerPoint/Keynote/LibreOffice but the slides are images, not editable text.
 
+## Editable rebuild (tools/editable_pptx.py)
+
+For decks, `viewer/presspage` also returns the text layer: real characters
+with per-run boxes `[y, x, height, width]` on a 960x540 point canvas.
+`tools/editable_pptx.py` turns that into an editable deck:
+
+1. fetches every slide render (default 1600 px wide),
+2. fetches the text layer per slide and rebuilds lines with gap-based word
+   joining,
+3. masks the baked-in text on the render (median ring colour) and keeps the
+   artwork as the slide background,
+4. lays real text boxes on top - position, size and colour sampled from the
+   render; Calibri, bold when the line is tall.
+
+Each slide ends up with one background picture plus N editable text boxes.
+Text is fully editable; the artwork is not. Verified against PowerPoint
+(the deck opens without repair and slides export correctly).
+
+```text
+python tools/editable_pptx.py "https://docs.google.com/presentation/d/<ID>/edit" -o out.pptx
+python tools/editable_pptx.py <file id> -o out.pptx --width 2000
+```
+
 ## Try it
 
 ```text
