@@ -294,6 +294,19 @@ def _join_line(words):
     return text, spans
 
 
+def _join_line_padded(words, space_counts):
+    """Join words with explicit space counts per gap (justification)."""
+    text = ""
+    spans = []
+    for idx, w in enumerate(words):
+        if idx > 0:
+            text += " " * max(1, space_counts[idx - 1])
+        start = len(text)
+        text += w["t"]
+        spans.append((start, len(text), w.get("color"), bool(w.get("underline"))))
+    return text, spans
+
+
 def build_deck(slides, renders, out_path, corrections=None):
     prs = Presentation()
     slide_w, slide_h = Pt(960), Pt(540)
@@ -384,6 +397,19 @@ def build_deck(slides, renders, out_path, corrections=None):
                         spc = max(-1500, min(1500, int(round(per_char * 100))))
                     ink_w_store = ink_w_u
                     nat_w_store = nw
+                    # heavy justification: pad word gaps instead of letters
+                    if spc > 140 and len(words) > 2:
+                        space_w = measure_width(" ", int(round(size))) or 6.0
+                        gaps = len(words) - 1
+                        extra_total = int(round((ink_w_u - nw) / space_w))
+                        if extra_total > 0:
+                            per_gap, rem = divmod(extra_total, gaps)
+                            counts = [
+                                1 + per_gap + (1 if i < rem else 0)
+                                for i in range(gaps)
+                            ]
+                            text, spans = _join_line_padded(words, counts)
+                            spc = 0
                     target_mass = ink_count / (scale * scale)
                     reg_mass = pil_ink_count(text, int(round(size)), False)
                     bold_mass = pil_ink_count(text, int(round(size)), True)
